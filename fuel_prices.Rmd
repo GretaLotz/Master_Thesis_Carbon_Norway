@@ -19,26 +19,22 @@ library(dplyr)
 ```{r}
 fuel_prices <- read_excel("prices_fuel_Norway.xlsx")
 
-# Calculate the VAT for diesel
+# Calculate VAT for diesel
 fuel_prices$diesel_vat <- fuel_prices$diesel_no_vat * 0.25
 
-# Calculate the full diesel price including VAT
+# Calculate full diesel price including VAT
 fuel_prices$diesel_full_price <- fuel_prices$diesel_no_vat * 1.25
 
-# View the dataframe to confirm the new columns have been added
-print(fuel_prices)
-
-# Calculate the VAT for gas
+# Calculate VAT for gas
 fuel_prices$gas_vat <- fuel_prices$gas_no_vat * 0.25
 
-# Calculate the full gas price including VAT
+# Calculate full gas price including VAT
 fuel_prices$gas_full_price <- fuel_prices$gas_no_vat * 1.25
 
-
-# Add gas VAT to the total taxes for gas
+# Add gas VAT to total taxes for gas
 fuel_prices$total_taxes_gas <- fuel_prices$total_taxes_gas + fuel_prices$gas_vat
 
-# Add diesel VAT to the total taxes for diesel
+# Add diesel VAT to total taxes for diesel
 # Ensure there's handling for NA values in total_taxes_diesel as it seems to contain NAs
 fuel_prices$total_taxes_diesel <- ifelse(is.na(fuel_prices$total_taxes_diesel), 
                                          fuel_prices$diesel_vat, 
@@ -47,7 +43,7 @@ fuel_prices$total_taxes_diesel <- ifelse(is.na(fuel_prices$total_taxes_diesel),
 ```
 
 ```{r}
-# Combine both diesel and gasoline data into one dataframe with a new 'fuel_type' column to differentiate
+# Combine both diesel and gasoline data into one df with a new 'fuel_type' column to differentiate
 fuel_prices_combined <- fuel_prices %>%
   mutate(fuel_type = "Panel A: Diesel") %>%
   select(year, fuel_type, total_taxes = total_taxes_diesel, basic_tax_diesel, road_tax = road_tax_diesel, co2_tax = co2_tax_diesel, vat = diesel_vat, full_price = diesel_full_price) %>%
