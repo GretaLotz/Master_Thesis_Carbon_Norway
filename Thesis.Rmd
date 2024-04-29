@@ -32,12 +32,12 @@ world_bank_norway <- read_excel("world_bank_norway.xls")
 filtered_data <- world_bank_norway %>%
   filter(indicator_code %in% c("EN.ATM.CO2E.LF.KT", "EN.ATM.CO2E.GF.KT", "EN.ATM.CO2E.SF.KT"))
 
-# Aggregate the data by country and indicator, summing across years
+# Aggregate data by country and indicator, summing across years
 aggregated_data <- filtered_data %>%
   group_by(country, country_code, indicator, indicator_code) %>%
   summarize(across(where(is.numeric), sum, na.rm = TRUE), .groups = "drop")
 
-# Calculate the sum across year columns for the total fuel combustion row
+# Calculate sum across year columns for the total fuel combustion row
 total_combustion_row <- aggregated_data %>%
   filter(indicator_code %in% c("EN.ATM.CO2E.LF.KT", "EN.ATM.CO2E.GF.KT", "EN.ATM.CO2E.SF.KT")) %>%
   summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = "drop")
@@ -50,13 +50,12 @@ total_combustion_row <- total_combustion_row %>%
          country = "Norway",
          country_code = "NOR")
 
-# Combine the aggregated data with the new total combustion row
+# Combine aggregated data with new total combustion row
 co2_emissions_df <- bind_rows(aggregated_data, total_combustion_row)
 
 
 total_fuel_combustion_row <- co2_emissions_df %>%
   filter(indicator_code == "TFC")
-#long format
 
 norway_long <- total_fuel_combustion_row %>%
   gather(key = "year", value = "value", -c(country, country_code, indicator, indicator_code))
@@ -66,7 +65,7 @@ norway_long_plot <- subset(norway_long, year < 2006)
 
 
 ```{r}
-# Plot the data
+# Plot data
 fuel_combustion_appendix_plot <- ggplot(norway_long_plot, aes(x = as.numeric(year), y = as.numeric(value))) +
   geom_line() +
   geom_vline(xintercept = 1991, linetype = "dashed", color = "black") +
@@ -81,14 +80,14 @@ fuel_combustion_appendix_plot <- ggplot(norway_long_plot, aes(x = as.numeric(yea
 
 print(fuel_combustion_appendix_plot)
 
-# Save the plot with specific dimensions
+# Save the plot
 ggsave("plots/fuel_combustion_appendix_plot.jpg", plot = fuel_combustion_appendix_plot, width = 7, height = 6, units = "in", dpi = 500)
 
 ```
 
 
 ```{r}
-# Filter the data for transport emissions (% of total fuel combustion) indicator
+# Filter data for transport emissions (% of total fuel combustion) indicator
 subset_co2_transport <- world_bank_norway %>%
   filter(indicator_code %in% c("EN.CO2.TRAN.ZS"))
 
@@ -108,7 +107,7 @@ norway_long <- norway_long %>%
 norway_long <- norway_long %>%
   rename(co2_fuel_absolute = value)
 
-# calculate the absolute value of kt CO2 from the percentage and the total kt of fuel combustion
+# calculate absolute of kt CO2 from percentage and total kt of fuel combustion
 norway_long <- norway_long %>%
   mutate(co2_transport_kt = co2_fuel_absolute * co2_trans_percent)
 ```
@@ -116,10 +115,10 @@ norway_long <- norway_long %>%
 
 ```{r Road Sector Emissions per capita}
 
-# Provide the path to your Excel file
+#  path to Excel
 file_path <- "population_norway.xlsx"
 
-# Read the Excel file into a data frame
+# Read Excel into data frame
 population_norway <- read_excel(file_path)
 
 per_capita_co2 <- left_join(norway_long, population_norway, by = "year")
@@ -151,18 +150,16 @@ ggplot(per_capita_co2, aes(x = as.numeric(year), y = as.numeric(CO2_transport_ca
 #### Fuel Consumption
 ```{r}
 norway_consumption <- read_excel("norway_consumption.xlsx")
-
 ```
 
 ```{r}
-
-## Convert the year columns to character
+# Convert the year columns to character
 norway_consumption[, 4:ncol(norway_consumption)] <- lapply(
   norway_consumption[, 4:ncol(norway_consumption)],
   as.character
 )
 
-# Reshape the data frame to long format
+# Reshape df to long format
 norway_consumption_long <- pivot_longer(
   norway_consumption,
   cols = -c(country, world_bank_code, category),
@@ -228,7 +225,7 @@ norway_gdp_summary <- pwt_data %>%
     max_rgdpo = max(rgdpo, na.rm = TRUE)
   )
 
-# Filter data for Norway and the years 1960-2005
+# Filter data for Norway 1960-2005
 norway_gdp_pc_summary <- pwt_data %>%
   filter(country == "Norway", year >= 1960, year <= 2005) %>%
   summarise(
@@ -239,7 +236,7 @@ norway_gdp_pc_summary <- pwt_data %>%
     max_rgdpo_pc = max(gdp_per_capita, na.rm = TRUE)
   )
 
-# Print the summary statistics
+# Print summary statistics
 print(norway_gdp_summary)
 print(norway_gdp_pc_summary)
 
@@ -248,17 +245,17 @@ print(norway_gdp_pc_summary)
 #### Urban Population
 
 ```{r urbanization Norway}
-# Provide the path to your Excel file
+# Provide path to Excel
 file_path <- "world_bank_norway.xls"
 
-# Read the Excel file into a data frame
+# Read Excel file into df
 world_bank_norway <- read_excel(file_path)
 
-# Filter the data for the indicator code SP.URB.TOTL.IN.ZS for Norway
+# Filter data for indicator code SP.URB.TOTL.IN.ZS for Norway
 urbanization_norway <- world_bank_norway %>%
   filter(indicator_code == "SP.URB.TOTL.IN.ZS")
 
-# Convert the data frame from wide to long format
+# Convert df to long format
 urbanization_norway_long <- urbanization_norway %>%
   pivot_longer(cols = starts_with("19") | starts_with("20"),
                names_to = "year",
@@ -269,7 +266,6 @@ urbanization_norway_long <- urbanization_norway %>%
 
 
 ```{r plot urbanization, message=FALSE, warning=FALSE}
-
 urbanization_norway_long <- urbanization_norway_long %>%
   mutate_all(as.numeric)
 
@@ -287,18 +283,17 @@ ggplot(filtered_data, aes(x = year, y = urbanization)) +
 #### Population Density
 
 ```{r Density, message=FALSE, warning=FALSE}
-
-# Provide the path to your Excel file
+# Provide path to Excel
 file_path <- "world_bank_norway.xls"
 
-# Read the Excel file into a data frame
+# Read Excel into df
 world_bank_norway <- read_excel(file_path)
 
-# Filter the data for the indicator code EN.POP.DNST for Norway
+# Filter data for indicator code EN.POP.DNST for Norway
 pop_density_norway <- world_bank_norway %>%
   filter(indicator_code == "EN.POP.DNST")
 
-# Convert the data frame from wide to long format
+# Convert df to long format
 pop_density_norway_long <- pop_density_norway %>%
   pivot_longer(cols = starts_with("19") | starts_with("20"),
                names_to = "year",
@@ -331,17 +326,14 @@ vehicles_norway <- vehicles_norway %>%
   mutate(vehicles_capita = (selection_vehicles / population) * 1000)
 
 # year column as numeric
-
 vehicles_norway <- vehicles_norway %>%
   mutate(year = as.numeric(year))
 
 # join gdp per capita column
 vehicles_norway <- left_join(vehicles_norway, norway_gdp %>% select(year, gdp_per_capita), by = "year")
-
 ```
 
 ```{r plots vehicles capita, warning=FALSE}
-
 ggplot(data = vehicles_norway, aes(x = year, y = vehicles_capita)) +
   # Add a line plot
   geom_line(color = "blue") +
@@ -352,13 +344,11 @@ ggplot(data = vehicles_norway, aes(x = year, y = vehicles_capita)) +
   ylim(0, 1000) +
   # Customize the theme
   theme_minimal()
-
 ```
 
 #### Compiling
 
 ```{r compiling carbontax_norway}
-
 #per_capita_co2
 #norway_consumption_final
 #pop_density_norway_long
@@ -402,40 +392,31 @@ carbontax_norway <- carbontax_norway %>%
 carbontax_norway <- carbontax_norway %>%
   select(country, year, CO2_transport_capita, GDP_per_capita, gas_cons_capita, 
          vehicles_capita, urban_pop, pop_density)
-
 ```
 
 
 
 ```{r merging with carbontax}
-
 # import Anderson's data frame carontax_fullsample
 library(foreign)
-# Load haven
 library(haven)
-
 
 carbontax <- read.dta("data_Andersson_2019/carbontax_data.dta")
 #carbontax <- lapply(carbontax, function(x) `attr<-`(x, "format.stata", NULL))
 #carbontax <- as_tibble(carbontax)
 
-# Remove Sweden from the data frame
+# Remove Sweden from df and combine
 carbontax <- subset(carbontax, country != "Sweden")
-
-# combine
 carbontax_norway$year <- as.integer(carbontax_norway$year)
 
-
-# Remove the 'Countryno' column from carbontax
+# Remove 'Countryno' column from carbontax
 carbontax <- carbontax %>% 
   select(-Countryno)
 
 carbontax <- bind_rows(carbontax, carbontax_norway)
 
-
-# If needed, arrange the data frame by country and year
+# arrange df by country and year
 carbontax <- carbontax %>% arrange(country, year)
-
 
 carbontax <- carbontax %>% 
   mutate(Countryno = as.integer(factor(country, levels = unique(country)))) %>%
@@ -524,7 +505,6 @@ text(1981,0.3,"VAT + Carbon tax",cex=Cex.set)
 ```
 
 ```{r}
-
 # Plot CO2_transport_capita for each country
 ggplot(carbontax, aes(x = year, y = CO2_transport_capita, group = country)) +
   geom_line() +

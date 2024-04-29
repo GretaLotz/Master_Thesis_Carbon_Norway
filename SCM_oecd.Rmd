@@ -60,15 +60,11 @@ carbontax_oecd <- oecd_all_countries_long %>%
     co2_trans_percent = as.numeric(co2_trans_percent),
     CO2_transport_capita = co2_per_capita * co2_trans_percent
   ) %>%
-  select(-co2_per_capita, -co2_trans_percent)  # Removing intermediate columns
-
+  select(-co2_per_capita, -co2_trans_percent)
 ```
 
 ```{r}
-
-# Assuming carbontax and carbontax_oecd are already loaded and prepared
-
-# Merge carbontax with the new CO2_transport_capita values
+# Merge carbontax with new CO2_transport_capita values
 carbontax_updated <- carbontax %>%
   left_join(carbontax_oecd %>% select(country, year, CO2_transport_capita),
             by = c("country", "year")) %>%
@@ -77,7 +73,7 @@ carbontax_updated <- carbontax %>%
   # Select the original columns of carbontax, now including the updated CO2_transport_capita
   select(Countryno, country, year, CO2_transport_capita, GDP_per_capita, gas_cons_capita, vehicles_capita, urban_pop, pop_density)
 
-# View the updated dataframe
+# View updated df
 print(carbontax_updated)
 ```
 
@@ -160,7 +156,6 @@ text(1983,-0.5,"Carbon tax",cex=Cex.set)
 ```
 
 ```{r}
-# Assuming synth.out is your synthetic control model output from the synth function
 V_weights <- synth.out$solution.v
 
 # Ensure V_weights is treated as a column vector
@@ -175,7 +170,6 @@ v_weights_df <- data.frame( Weights = V_weights)
 # Format the weights to non-scientific notation
 v_weights_df$Weights <- format(v_weights_df$Weights, scientific = FALSE)
 
-# Print the data frame
 print(v_weights_df)
 
 
@@ -183,7 +177,7 @@ print(v_weights_df)
 
 
 ```{r OECD sample data for DiD plot}
-# Calculate the average CO2_transport_capita for each year, excluding Norway
+# Calculate average CO2_transport_capita for each year, excluding Norway
 donor_pool_averages <- carbontax_updated %>%
   filter(country != "Norway") %>%
   group_by(year) %>%
@@ -203,10 +197,10 @@ comparison_data <- left_join(norway_data, donor_pool_averages, by = "year")
 ```{r pull values from synth function}
 synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 
-# Construct the Year vector from 1960 to 2005
+# Construct Year vector from 1960 to 2005
 years <- 1960:2005
 
-# Create the comparison dataframe
+# Create comparison df
 path_data <- data.frame(
   Year = years,
   Actual = dataprep.out$Y1plot,
@@ -221,10 +215,10 @@ synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 # Calculate the gap between Actual and Synthetic
 gap <- dataprep.out$Y1plot - synthetic_control_outcomes
 
-# Construct the Year vector from 1960 to 2005
+# Construct Year vector from 1960 to 2005
 years <- as.numeric(rownames(dataprep.out$Y0plot))  # Ensure years are correctly defined
 
-# Create the gap_data data frame
+# Create  gap_data df
 gap_data <- data.frame(
   Year = years,
   Gap = as.vector(gap)  # Convert matrix to vector if not already
@@ -295,10 +289,10 @@ text(1974,1.0,"Placebo tax",cex=Cex.set)
 # Calculate synthetic control outcomes
 synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 
-# Construct the Year vector from the time.plot range in dataprep.out
+# Construct Year vector from time.plot range in dataprep.out
 years <- 1960:1991
 
-# Create the 1981_placebo_path_plot data frame
+# Create 1981_placebo_path_plot df
 eighties_placebo_path_data <- data.frame(
   Year = years,
   Actual = dataprep.out$Y1plot,
@@ -353,14 +347,13 @@ text(1965,2.0,"Placebo tax",cex=Cex.set)
 
 
 ```{r extract 1971 placebo in-time tests data}
-
 # Calculate synthetic control outcomes
 synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 
-# Construct the Year vector from the time.plot range in dataprep.out
+# Construct Year vector from time.plot range in dataprep.out
 years <- 1960:1991
 
-# Create the 1981_placebo_path_plot data frame
+# Create 1981_placebo_path_plot df
 seventies_placebo_path_data <- data.frame(
   Year = years,
   Actual = dataprep.out$Y1plot,
@@ -442,7 +435,7 @@ plot(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],
 # Add lines for control states
 for (i in 1:ncol(data)) { lines(years,data[gap.start:gap.end,i],col="gray") }
 
-## Add Sweden Line
+## Add Norway Line
 lines(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],lwd=2,col="black")
 
 # Add grid
@@ -463,14 +456,13 @@ abline(h=1)
 
 rownames(store) <- as.character(1960:2005)  # Use as.character to ensure they are treated as non-numeric row names
 
-# Convert 'store' matrix to a data frame
+# Convert 'store' matrix to df
 in_space_gap_data <- as.data.frame(store)
 
-# Add a year column explicitly from the row names
+# Add year column explicitly from row names
 in_space_gap_data$Year <- as.numeric(rownames(in_space_gap_data))  # Convert back to numeric for analysis purposes
 
-# Reshape from wide to long format
-
+# Reshape to long format
 in_space_gap_data_long <- melt(in_space_gap_data, id.vars = "Year", variable.name = "Country", value.name = "Gap")
 colnames(in_space_gap_data_long) <- c("year", "country", "gap")
 in_space_gap_data_long <-in_space_gap_data_long %>%
@@ -569,7 +561,6 @@ abline(h=1)
 
 
 ```{r in-space test extract data}
-# Assume column names for 'store' need to be explicitly set to country names
 colnames(store) <- unique(carbontax_updated$country)  # Adjust to match your specific country name vector
 
 # Set row names for the 'store' matrix to represent years
@@ -583,7 +574,6 @@ gap.start <- 1
 gap.end.pre <- which(rownames(gap_data_store) == "1990")
 mse <- apply(gap_data_store[gap.start:gap.end.pre, ]^2, 2, mean)
 
-# Assume 'Norway' is one of the column names for MSE calculation
 norway.mse <- as.numeric(mse["Norway"])
 
 # Filter countries with MSPE less than 20 times that of Norway's MSPE
@@ -593,8 +583,7 @@ filtered_data <- gap_data_store[, valid_countries, drop = FALSE]  # Ensure it re
 # Add a year column explicitly from the row names to the filtered data
 filtered_data$Year <- as.numeric(rownames(filtered_data))  # Convert row names to numeric for the year
 
-# Reshape from wide to long format
-
+# Reshape to long format
 in_space_gap_data_mspe_20_long <- melt(filtered_data, id.vars = "Year", variable.name = "Country", value.name = "Gap")
 
 # Ensure Country column is treated as character
@@ -610,7 +599,6 @@ in_space_gap_data_mspe_20_long$Country <- as.character(in_space_gap_data_mspe_20
 ###################################################
 # Figure 8 was made using Microsoft Excel. Below is an example on how the data for this figure was created
 # Example: Postperiod MSPE / Preperiod MSPE for Norway (treatment.identifier = 10)
-
 
 carbontax_updated$Countryno <- as.numeric(as.character(carbontax_updated$Countryno))
 
@@ -653,10 +641,10 @@ for (i in seq_along(unique_countries)) {
   results[[country_name]] <- mspepost / mspepre
 }
 
-# Convert the results list to a data frame for ggplot2
+# Convert the results list to df
 ratio_df <- data.frame(Country = names(results), MSPE_Ratio = unlist(results))
 
-# Create a horizontal bar plot with ggplot2
+# Create horizontal bar plot
 ggplot(ratio_df, aes(x = reorder(Country, -MSPE_Ratio), y = MSPE_Ratio, fill = MSPE_Ratio)) +
   geom_bar(stat = "identity") +
   coord_flip() +  # Make the bar plot horizontal
@@ -671,47 +659,44 @@ ggplot(ratio_df, aes(x = reorder(Country, -MSPE_Ratio), y = MSPE_Ratio, fill = M
 library(ggplot2)
 library(tidyr)
 
-# Convert the carbontax_updated dataframe to long format
+# Convert carbontax_updated df to long format
 carbontax_long <- pivot_longer(
   carbontax_updated,
-  cols = -c(Countryno, country, year),  # Assuming these are the identifier columns
+  cols = -c(Countryno, country, year),
   names_to = "variable",
   values_to = "value"
 )
 
-# Now, use ggplot2 to plot, making the line for Norway black
 ggplot(data = carbontax_long, aes(x = year, y = value, group = country)) + 
-  geom_line(aes(color = ifelse(country == "Norway", "Norway", "Other"))) +  # Conditionally adjust the color
-  scale_color_manual(values = c("Norway" = "black", "Other" = "grey")) +  # Define colors
-  facet_wrap(~variable, scales = "free_y") +  # Separate plot for each variable
+  geom_line(aes(color = ifelse(country == "Norway", "Norway", "Other"))) + 
+  scale_color_manual(values = c("Norway" = "black", "Other" = "grey")) +
+  facet_wrap(~variable, scales = "free_y") +
   theme_minimal() + 
   labs(x = "Year", y = "Value", color = "Country") +
-  theme(legend.position = "bottom")  # Position the legend at the bottom of the plot
+  theme(legend.position = "bottom")
 
 ```
 
 ```{r}
 
-# Convert the carbontax_updated dataframe to long format
+# Convert the carbontax_updated df to long format
 carbontax_long <- pivot_longer(
   carbontax_updated,
-  cols = -c(Countryno, country, year),  # Assuming these are the identifier columns
+  cols = -c(Countryno, country, year),
   names_to = "variable",
   values_to = "value"
 )
 
-# Define a color for each country, with Norway as black
 country_colors <- setNames(rainbow(length(unique(carbontax_long$country)) - 1), unique(carbontax_long$country[carbontax_long$country != "Norway"]))
 country_colors["Norway"] <- "black"  # Ensure Norway is black
 
-# Plot with ggplot2, specifying colors for each country
 ggplot(data = carbontax_long, aes(x = year, y = value, group = country, color = country)) + 
   geom_line() + 
-  scale_color_manual(values = country_colors) +  # Assign colors
-  facet_wrap(~variable, scales = "free_y") +  # Separate plot for each variable
+  scale_color_manual(values = country_colors) +  
+  facet_wrap(~variable, scales = "free_y") +  
   theme_minimal() + 
   labs(x = "Year", y = "Value", color = "Country") +
-  theme(legend.position = "bottom")  # Position the legend at the bottom of the plot
+  theme(legend.position = "bottom")
 
 ```
 
@@ -730,7 +715,6 @@ carbontax_long <- pivot_longer(
   values_to = "value"
 )
 
-# Filter the data for the specific countries
 specific_countries <- c("Norway", "Portugal", "United States", "Denmark", "Canada", "Japan", "Switzerland")
 carbontax_long <- carbontax_long %>%
   filter(country %in% specific_countries)
@@ -744,7 +728,6 @@ country_colors <- c("Norway" = "black",
                     "Japan" = "purple", 
                     "Switzerland" = "brown")
 
-# Plot with ggplot2, specifying colors for each country
 ggplot(data = carbontax_long, aes(x = year, y = value, group = country, color = country)) + 
   geom_line() + 
   scale_color_manual(values = country_colors) +  # Assign colors

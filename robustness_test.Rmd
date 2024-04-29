@@ -22,14 +22,15 @@ library(haven)
 
 control_countries <- c(1:9, 11:15)  
 
-# Initialize a dataframe to store the results
+# Initialize df to store results
 results <- data.frame(Year = 1960:2005)  # Adjust years as necessary
 
-# Define the names of the countries corresponding to identifiers for clarity in naming columns
+# Define the names of the countries
 country_names <- c("Australia", "Belgium", "Canada", "Denmark", "France", "Greece", 
                    "Iceland", "Japan", "New Zealand", "Norway", "Poland", "Portugal", 
                    "Spain", "Switzerland", "United States")
-names_to_use <- country_names[control_countries]  # Filter names to only include control countries
+# Filter names to only include control countries
+names_to_use <- country_names[control_countries]
 
 # Loop through each control country to exclude it and perform synthetic control analysis
 for (i in seq_along(control_countries)) {
@@ -62,7 +63,7 @@ for (i in seq_along(control_countries)) {
     # Calculate synthetic control outcomes
     synthetic_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
     
-    # Store the results in the dataframe under the appropriate country name
+    # Store the results in df under the appropriate country name
     results[[paste("excl", names_to_use[i], sep = "_")]] <- as.vector(synthetic_outcomes)
 }
 
@@ -95,8 +96,6 @@ significant_leave_one_out_long <- pivot_longer(significant_leave_one_out,
 ```
 
 ```{r}
-
-# Now plot using ggplot2
 leave_one_out_plot <- ggplot(significant_leave_one_out_long, aes(x = Year, y = CO2_per_capita, color = Condition)) +
   geom_line() +
   labs(title = "Leave-One-Out Analysis for Synthetic Norway with Significant Weights",
@@ -107,7 +106,6 @@ leave_one_out_plot <- ggplot(significant_leave_one_out_long, aes(x = Year, y = C
   theme(legend.position = "right") +
   scale_color_brewer(palette = "Set1")
 
-# Print the plot
 print(leave_one_out_plot)
 
 ```
@@ -161,10 +159,10 @@ dataprep.out <-
 ```{r pull path plot data}
 synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 
-# Construct the Year vector from 1960 to 2005
+# Construct Year vector from 1960 to 2005
 years <- 1960:2005
 
-# Create the comparison dataframe
+# Create  comparison df
 gdp_path_data <- data.frame(
   Year = years,
   Actual = dataprep.out$Y1plot,
@@ -180,10 +178,10 @@ synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 # Calculate the gap between Actual and Synthetic
 gap <- dataprep.out$Y1plot - synthetic_control_outcomes
 
-# Construct the Year vector from 1960 to 2005
+# Construct Year vector from 1960 to 2005
 years <- as.numeric(rownames(dataprep.out$Y0plot))  # Ensure years are correctly defined
 
-# Create the gap_data data frame
+# Create  gap_data df
 gdp_gap_data <- data.frame(
   Year = years,
   Gap = as.vector(gap)  # Convert matrix to vector if not already
@@ -192,28 +190,27 @@ gdp_gap_data <- data.frame(
 
 
 ```{r}
-
 gdp_path_plot <- ggplot(gdp_path_data, aes(x = Year)) +
-  geom_line(aes(y = X10, color = "Norway", linetype = "Norway"), size = 0.5) +  # Solid line for Norway (Actual data)
-  geom_line(aes(y = Synthetic, color = "Synthetic Norway", linetype = "Synthetic Norway"), size = 0.5) +  # Dashed line for Synthetic control
-  geom_vline(xintercept = 1991, linetype = "dotted", color = "black", size = 0.5) +  # Dotted line at the year 1990
-  geom_rect(aes(xmin = 1987, xmax = 1992, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.01) +  # Shaded area for the recession
+  geom_line(aes(y = X10, color = "Norway", linetype = "Norway"), size = 0.5) +
+  geom_line(aes(y = Synthetic, color = "Synthetic Norway", linetype = "Synthetic Norway"), size = 0.5) +
+  geom_vline(xintercept = 1991, linetype = "dotted", color = "black", size = 0.5) +
+  geom_rect(aes(xmin = 1987, xmax = 1992, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.01) + 
   labs(title = NULL,
        x = NULL,
        y = "GDP",
        color = "Legend",
-       linetype = "Legend") +  # Label for linetype legend
+       linetype = "Legend") +
   theme_classic() +
-  theme(legend.position = c(0.15, 0.13),  # Position the legend at the bottom left
-        legend.title = element_blank(),  # Remove the legend title for simplicity
-        legend.text = element_text(size = 8),  # Set text size for legend
+  theme(legend.position = c(0.15, 0.13),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
         legend.background = element_rect(fill = "white", colour = "black"),
-        legend.key = element_blank()) +  # No boxes around the legend symbols
+        legend.key = element_blank()) +
   annotate("text", x = 1986, y = max(gdp_path_data$Synthetic, na.rm = TRUE) * 0.27, label = "Carbon tax", hjust = 0, size = 3, color = "black") +
   scale_y_continuous(limits = c(0, 50000), breaks = seq(0, 50000, by = 10000)) +
   scale_x_continuous(limits = c(1960, 2005), breaks = seq(1960, 2005, by = 5)) +
-  scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) +  # Set line colors
-  scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed"))  # Set line types
+  scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) + 
+  scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed"))
 
 
 gdp_path_plot
@@ -223,10 +220,6 @@ gdp_path_plot
 
 
 ```{r}
-
-#gdp_gap_data <- gdp_gap_data %>%
- # rename(gdp_gap = Gap)
-
 # Combine the data frames into one for plotting
 combined_data <- merge(gap_data, gdp_gap_data, by = "Year")
 
@@ -240,7 +233,6 @@ names(combined_data)[names(combined_data) == "Gap"] <- "CO2_Deviation"
 
 ```{r prep for robustness test Figure 10}
 #import data
-
 carbontax_fullsample_data <- read_dta("data_Andersson_2019/carbontax_fullsample_data.dta")
 
 # List of countries to remove
@@ -360,10 +352,10 @@ text(1983,-0.5,"Carbon tax",cex=Cex.set)
 ```{r pull values from synth function}
 synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
 
-# Construct the Year vector from 1960 to 2005
+# Construct Year vector from 1960 to 2005
 years <- 1960:2005
 
-# Create the comparison dataframe
+# Create the comparison df
 full_path_data <- data.frame(
   Year = years,
   Actual = dataprep.out$Y1plot,
@@ -384,13 +376,12 @@ predictor_names <- c("GDP_per_capita", "gas_cons_capita", "vehicles_capita", "ur
                      "CO2_transport_capita_1990", "CO2_transport_capita_1980", "CO2_transport_capita_1970")
 names(V_weights) <- predictor_names
 
-# Create a data frame
+# Create df
 v_weights_df <- data.frame( Weights = V_weights)
 
 # Format the weights to non-scientific notation
 v_weights_df$Weights <- format(v_weights_df$Weights, scientific = FALSE)
 
-# Print the data frame
 print(v_weights_df)
 ```
 
@@ -401,9 +392,8 @@ print(v_weights_df)
 control_countries <- c(1:16, 18:25)  
 
 # Initialize a dataframe to store the results
-results <- data.frame(Year = 1960:2005)  # Adjust years as necessary
+results <- data.frame(Year = 1960:2005)
 
-# Define the names of the countries corresponding to identifiers for clarity in naming columns
 country_names <- c("Australia","Austria", "Belgium", "Canada", "Denmark", "Finland","France", "Germany","Greece", 
                    "Iceland", "Ireland", "Italy","Japan","Luxembourg","Netherlands" , "New Zealand", "Norway", "Poland", "Portugal", 
                    "Spain", "Sweden","Switzerland", "Turkey", "United Kingdom","United States")
@@ -440,11 +430,9 @@ for (i in seq_along(control_countries)) {
     # Calculate synthetic control outcomes
     synthetic_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
     
-    # Store the results in the dataframe under the appropriate country name
+    # Store the results in df under the appropriate country name
     results[[paste("excl", names_to_use[i], sep = "_")]] <- as.vector(synthetic_outcomes)
 }
-
-
 ```
 
 
@@ -453,30 +441,16 @@ all_leave_one_out_path_data <- merge(path_data, results, by = "Year", all = TRUE
   rename(Norway = X10,
          Synthetic_Norway = Synthetic)
 
-# List of countries with weight greater than 0.001
-#significant_countries <- c("Canada", "Denmark", "France", "Greece" ,"Portugal", "Spain" ,"Switzerland", "United States", "Japan")
-
-# Create a vector of column names to keep, based on significant countries
-#columns_to_keep <- c("Year", "Norway", "Synthetic_Norway",
-#                     paste("excl", significant_countries, sep = "_"))
-
-# Filter the all_leave_one_out_path_data to keep only the significant countries
-#all_significant_leave_one_out <- all_leave_one_out_path_data[columns_to_keep]
-
 # Reshape the filtered data for plotting
 all_significant_leave_one_out_long <- pivot_longer(all_leave_one_out_path_data, 
                             cols = -Year, 
                             names_to = "Condition", 
                             values_to = "CO2_per_capita")
-
-
 ```
 
 
 
 ```{r}
-
-# Now plot using ggplot2
 all_leave_one_out_plot <- ggplot(all_significant_leave_one_out_long, aes(x = Year, y = CO2_per_capita, color = Condition)) +
   geom_line() +
   labs(title = "Leave-One-Out Analysis for Synthetic Norway with Significant Weights",
@@ -487,8 +461,6 @@ all_leave_one_out_plot <- ggplot(all_significant_leave_one_out_long, aes(x = Yea
   theme(legend.position = "right") +
   scale_color_brewer(palette = "Set1")
 
-# Print the plot
 print(all_leave_one_out_plot)
-
 ```
 

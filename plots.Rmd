@@ -24,14 +24,14 @@ library(dplyr)
 library(flextable)
 library(officer)
 
-# Assuming weights_df is your original data frame
+# weights_df is original data frame
 # Rename columns and drop 'unit.numbers'
 weights_df <- weights_df %>%
   select(
     Country = unit.names,  # Rename unit.names to Country
     Weight = w.weights     # Rename w.weights to Weight
   ) %>%
-  mutate(Weight = round(Weight, 3))  # Optionally round the weights to three decimal places
+  mutate(Weight = round(Weight, 3))  # round the weights to three decimal places
 
 
 # Round the weights to three decimal places
@@ -70,7 +70,6 @@ print(doc, target = file_path)
 library(knitr)
 library(kableExtra)
 
-
 # Renaming the rows
 rownames(table_avg_comparison) <- c(
   "GDP per capita",
@@ -82,64 +81,49 @@ rownames(table_avg_comparison) <- c(
   "CO₂ from transport per capita 1970"
 )
 
-
-# Assuming your matrix 'table' is defined as you've shown before
-# Convert the matrix to a data frame for easier manipulation
+# Convert matrix to a data frame for easier manipulation
 table_avg_comparison_df <- as.data.frame(table_avg_comparison)
 
-# Round the numeric data to 1 decimal place
+# Round numeric data to 1 decimal
 table_avg_comparison_df <- round(table_avg_comparison_df, 1)
 
-# Renaming the columns correctly for the data frame
+# Renaming columns correctly for the data frame
 names(table_avg_comparison_df) <- c("Norway", "Synth. Norway", "OECD sample")
 
-# Add a new column at the beginning for the row names from the matrix
+# Add new column at the beginning for the row names from the matrix
 table_avg_comparison_df <- cbind("Variables" = rownames(table_avg_comparison), table_avg_comparison_df)
 
 # Update rownames to NULL to avoid duplication in kable output
 rownames(table_avg_comparison_df) <- NULL
 
-# Generate the table with knitr::kable
+# Generate table with knitr::kable
 kable_output <- kable(table_avg_comparison_df, format = "html", escape = FALSE) %>%
   kable_styling(full_width = FALSE, bootstrap_options = "striped", position = "center")
 
-# Render the kable output for R Markdown or print to the console
 print(kable_output)
-
 ```
 
 ```{r regression table 2}
 library(flextable)
 library(officer)
 
-# Create a flextable from the data frame
+# Create flextable from data frame
 flex_table <- flextable(table_avg_comparison_df)
 
-# Set the font size and family for the entire table
+# Set the font size and family for table
 flex_table <- flex_table %>%
   font(fontname = "Times New Roman", part = "all") %>%
   fontsize(size = 12, part = "all")
 
-# Optional: Style the header and add stripes for better readability
-#flex_table <- theme_booktabs(flex_table) %>% # Adds booktabs-style horizontal lines
- # bold(part = "header") %>% # Make headers bold
-  #autofit() %>% # Fit the table to content widths
-  #add_header_lines(values = "Summary of Variables")
-
-# Check the table in R console (optional)
 print(flex_table)
 
-# Create a new Word document
+# Create new Word document and add flextable
 doc <- read_docx()
-
-# Add the flextable to the document
 doc <- body_add_flextable(doc, value = flex_table)
 
-# Save the Word document
+# Save document
 file_path <- "plots/Word_Document_2.docx"
 print(doc, target = file_path)
-
-
 ```
 
 Fertig, als Beispiel
@@ -166,8 +150,9 @@ DiD_plot <- ggplot(comparison_data, aes(x = year)) +
   scale_linetype_manual(values = c("Norway" = "solid", "OECD sample" = "dashed"))  # Define line types
 
 
-DiD_plot
-# Save the plot with specific dimensions
+print(DiD_plot)
+
+# Save plot
 ggsave("plots/DiD_plot.jpg", plot = DiD_plot, width = 7, height = 6, units = "in", dpi = 500)
 
 ```
@@ -199,8 +184,9 @@ path_plot <- ggplot(path_data, aes(x = Year)) +
   scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) +  # Set line colors
   scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed"))  # Set line types
 
-path_plot
-# Save the plot with specific dimensions
+print(path_plot)
+
+# Save plot
 ggsave("plots/path_plot.jpg", plot = path_plot, width = 7, height = 6, units = "in", dpi = 500)
 
 ```
@@ -208,8 +194,6 @@ ggsave("plots/path_plot.jpg", plot = path_plot, width = 7, height = 6, units = "
 
 ### gap plot
 Andersson p.14
-y axis different scale , +/-0.5 instead of +/-0.2
-no arrows for the carbon tax label throughout
 ```{r wv}
 gap_plot <- ggplot(gap_data, aes(x = Year, y = Gap)) +
   geom_line(color = "black") +  # Line for the Gap
@@ -224,7 +208,6 @@ gap_plot <- ggplot(gap_data, aes(x = Year, y = Gap)) +
 #  ylim(-0.8, 1) +
   geom_vline(xintercept = 1991, linetype = "dotted", color = "black") +
   annotate("text", x = 1990, y = -0.35, label = "Carbon tax", hjust = 1)
-  #annotate("segment", x = 1987, xend = 1989, y = -0.35, yend = -0.35, colour = "black", arrow = arrow(length = unit(0.1, "inches")))
 
 print(gap_plot)
 
@@ -233,32 +216,9 @@ ggsave("plots/gap_plot.jpg", plot = gap_plot, width = 7, height = 6, units = "in
 ```
 
 
-```{r initial}
-
-gap_plot_initial <- ggplot(gap_data, aes(x = Year, y = Gap)) +
-  geom_line(color = "blue") +  # Line for the Gap
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +  # Zero line
-  labs(title = "Gap in Metric Tons Per Capita (CO2 from Transport)",
-       x = "Year",
-       y = "Gap in Metric Tons Per Capita") +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  ylim(-0.8, 1) +
-  geom_vline(xintercept = 1991, linetype = "dotted", color = "black") +
-  annotate("text", x = 1983, y = -0.5, label = "Carbon tax", hjust = 1) +
-  annotate("segment", x = 1987, xend = 1989, y = -0.5, yend = -0.5, colour = "black", arrow = arrow(length = unit(0.1, "inches")))
-
-print(gap_plot_initial)
-
-```
-
-
-
 ### fuel prices
-Make this look more like the others, Andersson p.7
+Andersson p.7
 Run fuel_prices.Rmd
-Andersson hat Steuern bis zu ihrer Einführung auf "Null", der Norwegen-Datensatz hat sie mutmasslich auf NA
-Rename full_price to Retail Price
 
 ```{r wv_1 disaggregation fuel price, message=FALSE, warning=FALSE}
 library(cowplot)
@@ -278,7 +238,6 @@ plot_disaggregation_wv_1 <- ggplot(data = fuel_prices_diesel, aes(x = year)) +
   geom_line(aes(y = full_price, colour = "Retail Price", linetype = "Retail Price")) +
   geom_vline(xintercept = 1991, linetype = "dotted", colour = "black") +
   facet_wrap(~"Panel A.\nDiesel", ncol = 1) +
-#  facet_grid(. ~ fuel_type, axes = "all", axis.labels = "all_y") +
   labs(title = NULL,
        x = NULL,  # Removes the x-axis label
        y = "Price (NOK/litre)",
@@ -305,7 +264,6 @@ plot_disaggregation_wv_2 <- ggplot(data = fuel_prices_gasoline, aes(x = year)) +
   geom_line(aes(y = full_price, colour = "Retail Price", linetype = "Retail Price")) +
   geom_vline(xintercept = 1991, linetype = "dotted", colour = "black") +
   facet_wrap(~"Panel B.\nGasoline", ncol = 1) +
-#  facet_grid(. ~ fuel_type, axes = "all", axis.labels = "all_y") +
   labs(title = NULL,
        x = NULL,  # Removes the x-axis label
        y = "Price (NOK/litre)",
@@ -350,7 +308,6 @@ plot_aggregation_wv_1 <- ggplot(data = fuel_prices_diesel, aes(x = year)) +
   geom_line(aes(y = full_price, colour = "Retail Price", linetype = "Retail Price")) +
   geom_vline(xintercept = 1991, linetype = "dotted", colour = "black") +
   facet_wrap(~"Panel A.\nDiesel", ncol = 1) +
-#  facet_grid(. ~ fuel_type, axes = "all", axis.labels = "all_y") +
   labs(title = NULL,
        x = NULL,  # Removes the x-axis label
        y = "Price (NOK/litre)",
@@ -375,7 +332,6 @@ plot_aggregation_wv_2 <- ggplot(data = fuel_prices_gasoline, aes(x = year)) +
   geom_line(aes(y = full_price, colour = "Retail Price", linetype = "Retail Price")) +
   geom_vline(xintercept = 1991, linetype = "dotted", colour = "black") +
   facet_wrap(~"Panel B.\nGasoline", ncol = 1) +
-#  facet_grid(. ~ fuel_type, axes = "all", axis.labels = "all_y") +
   labs(title = NULL,
        x = NULL,  # Removes the x-axis label
        y = "Price (NOK/litre)",
@@ -388,8 +344,6 @@ plot_aggregation_wv_2 <- ggplot(data = fuel_prices_gasoline, aes(x = year)) +
         legend.background = element_rect(fill = "white", colour = "black"),
         strip.text = element_text(size = 13, color = "black", hjust = 0), # Beispiele für Layout-Anpassungen
         strip.background = element_blank()
-        #title = element_rect(colour = "black", fill = "blue")
-        #plot.title.box = element_rect(size = 0.5, color = "black", linetype = "dashed", fill = "white")
         ) +
   scale_colour_manual(values = c("Total Tax" = "black", "Retail Price" = "grey80")) +
   scale_linetype_manual(values = c("Total Tax" = "solid", "Retail Price" = "longdash")) +
@@ -438,7 +392,6 @@ plot_all_taxes_disaggregation_wv_1 <- ggplot(data = fuel_prices_diesel, aes(x = 
   ) +
   scale_colour_manual(values = c("Road Tax" = "black", "VAT" = "gray20", "CO\u2082 Tax" = "grey40", "Basic Tax" = "grey60", "Retail Price" = "grey80")) +
   scale_linetype_manual(values = c("Road Tax" = "solid", "VAT" = "dotdash", "CO\u2082 Tax" = "dashed","Basic Tax" = "dotted", "Retail Price" = "longdash")) +
-#  ylim(0, 12.5) +
   scale_y_continuous(limits = c(0, 15), breaks = seq(0, 14, by = 2), expand = expansion(mult = c(0, 0))) + # More frequent breaks on the y-axis
   scale_x_continuous(limits = c(1985, 2009), breaks = seq(1985, 2005, by = 5) , expand = expansion(mult = c(0, 0)))
 
@@ -505,7 +458,6 @@ plot_all_taxes_aggregation_wv_2 <- ggplot(data = fuel_prices_gasoline, aes(x = y
   geom_vline(xintercept = 1991, linetype = "dotted", colour = "black") +
   annotate("text", x = 1995, y = 13, vjust = -0.5, label = "Carbon Tax", color = "black", size = 3) +
   facet_wrap(~"Panel D.\nGasoline aggregated", ncol = 1) +
-#  facet_grid(. ~ fuel_type, axes = "all", axis.labels = "all_y") +
   labs(title = NULL,
        x = NULL,  # Removes the x-axis label
        y = "Price (NOK/litre)",
@@ -518,8 +470,6 @@ plot_all_taxes_aggregation_wv_2 <- ggplot(data = fuel_prices_gasoline, aes(x = y
         legend.background = element_rect(fill = "white", colour = "black"),
         strip.text = element_text(size = 11.5, color = "black", hjust = 0), # Beispiele für Layout-Anpassungen
         strip.background = element_blank()
-        #title = element_rect(colour = "black", fill = "blue")
-        #plot.title.box = element_rect(size = 0.5, color = "black", linetype = "dashed", fill = "white")
         ) +
   scale_colour_manual(values = c("Total Tax" = "black", "Retail Price" = "grey80")) +
   scale_linetype_manual(values = c("Total Tax" = "solid", "Retail Price" = "longdash")) +
@@ -571,11 +521,9 @@ plot <- ggplot(data = fuel_prices_combined, aes(x = year)) +
 # Print the plot
 print(plot)
 
-# ggsave("plots/fuel_prices_plot.jpg", plot, width = 12, height = 6, dpi = 300)
-
 ```
 
-Andersson p.7, text not vertical 
+Andersson p.7
 
 ```{r wv graph diesel gasoline}
 
@@ -591,8 +539,6 @@ consumption_plot_wv <- ggplot(norway_consumption_long, aes(x = year, y = value_k
         legend.title = element_blank(),  # Remove the legend title for simplicity
         legend.text = element_text(size = 8),  # Set text size for legend
         legend.background = element_rect(fill = "white", colour = "black"), 
-        #panel.grid.major = element_blank(),  # Remove major grid lines
-        #panel.grid.minor = element_blank(),
         legend.key = element_blank()) +
   scale_color_manual(values = c("Road sector diesel fuel consumption per capita (kt of oil equivalent)" = "black", 
                                 "Road sector gasoline fuel consumption per capita (kt of oil equivalent)" = "black"),
@@ -645,7 +591,6 @@ print(consumption_plot_initial)
 
 ### placebo tests
 p. 15 
-alternative aufmachung von facet graphen
 ```{r wv placebo tests}
 library(cowplot)
 eighties_placebo_plot <- ggplot(eighties_placebo_path_data, aes(x = Year)) +
@@ -654,7 +599,6 @@ eighties_placebo_plot <- ggplot(eighties_placebo_path_data, aes(x = Year)) +
   geom_vline(xintercept = 1981, linetype = "dotted", color = "black") +
   theme_classic() +
   scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed")) +
- # scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) +
   annotate("text", x = 1971.5, y = .5, label = "Placebo tax", hjust = 0) +
   scale_y_continuous(limits = c(0, 3), breaks = seq(0, 3, by = .5), expand = expansion(mult = c(0, 0))) + # More frequent breaks on the y-axis
   scale_x_continuous(limits = c(1960, 1995), breaks = seq(1960, 1990, by = 5) , expand = expansion(mult = c(0, 0)))+
@@ -681,8 +625,6 @@ seventies_placebo_plot <- ggplot(seventies_placebo_path_data, aes(x = Year)) +
         legend.title = element_blank(),  # Remove the legend title for simplicity
         legend.text = element_text(size = 8),  # Set text size for legend
         legend.background = element_rect(fill = "white", colour = "black"),
-        #title = element_rect(colour = "black", fill = "blue")
-        #plot.title.box = element_rect(size = 0.5, color = "black", linetype = "dashed", fill = "white")
         ) +
   facet_wrap(~ "Panel B.\n1971", ncol = 1) +
   labs(title = NULL,
@@ -699,10 +641,8 @@ seventies_placebo_plot <- ggplot(seventies_placebo_path_data, aes(x = Year)) +
 # Show the combined plot
 print(combined_placebo_plots)
 
-# Export the plot as a PNG file with a white background
-# ggsave("plots/combined_placebo_plots.jpg", plot = combined_placebo_plots, width = 10, height = 6, units = "in", bg = "white")
+# Export plot
 ggsave("plots/combined_placebo_plots.jpg", plot = combined_placebo_plots, width = 12, height = 6, units = "in", bg = "white")
-# ggsave("plots/combined_placebo_plots_wide_2.jpg", plot = combined_placebo_plots, width = 14, height = 6, units = "in", bg = "white")
 ```
 
 ```{r initial eighties}
@@ -807,27 +747,8 @@ ggsave("plots/leave_one_out_plot.jpg", plot = leave_one_out_plot, width = 7, hei
 ```
 
 
-
-```{r initial leave one out}
-leave_one_out_plot <- ggplot(significant_leave_one_out_long, aes(x = Year, y = CO2_per_capita, color = Condition)) +
-  geom_line() +
-  labs(title = "Leave-One-Out Analysis for Synthetic Norway with Significant Weights",
-       x = "Year",
-       y = "CO2 Emissions per Capita (metric tons)",
-       color = "Condition") +
-  theme_minimal() +
-  theme(legend.position = "right") +
-  scale_color_brewer(palette = "Set1")
-
-# Print the plot
-leave_one_out_plot
-
-
-```
-
 Andersson p.19
 ```{r wv gdp_plot}
-
 gdp_path_plot <- ggplot(gdp_path_data, aes(x = Year)) +
   geom_line(aes(y = X10, color = "Norway", linetype = "Norway"), size = 0.5) +  # Solid line for Norway (Actual data)
   geom_line(aes(y = Synthetic, color = "Synthetic Norway", linetype = "Synthetic Norway"), size = 0.5) +  # Dashed line for Synthetic control
@@ -852,44 +773,12 @@ gdp_path_plot <- ggplot(gdp_path_data, aes(x = Year)) +
 
 
 gdp_path_plot
-# Save the plot with specific dimensions
+# Save the plot
 ggsave("plots/gdp_path_plot.jpg", plot = gdp_path_plot, width = 7, height = 6, units = "in", dpi = 500)
 ```
 
 
-
-```{r initial gdp_plot}
-
-gdp_path_plot <- ggplot(gdp_path_data, aes(x = Year)) +
-  geom_line(aes(y = X10, color = "Norway", linetype = "Norway"), size = 0.5) +  # Solid line for Norway (Actual data)
-  geom_line(aes(y = Synthetic, color = "Synthetic Norway", linetype = "Synthetic Norway"), size = 0.5) +  # Dashed line for Synthetic control
-  geom_vline(xintercept = 1991, linetype = "dotted", color = "black", size = 0.5) +  # Dotted line at the year 1990
-  geom_rect(aes(xmin = 1987, xmax = 1992, ymin = -Inf, ymax = Inf), fill = "grey", alpha = 0.01) +  # Shaded area for the recession
-  labs(title = NULL,
-       x = NULL,
-       y = "GDP",
-       color = "Legend",
-       linetype = "Legend") +  # Label for linetype legend
-  theme_classic() +
-  theme(legend.position = c(0.15, 0.13),  # Position the legend at the bottom left
-        legend.title = element_blank(),  # Remove the legend title for simplicity
-        legend.text = element_text(size = 8),  # Set text size for legend
-        legend.background = element_rect(fill = "white", colour = "black"),
-        legend.key = element_blank()) +  # No boxes around the legend symbols
-  annotate("text", x = 1986, y = max(gdp_path_data$Synthetic, na.rm = TRUE) * 0.27, label = "Carbon tax", hjust = 0, size = 3, color = "black") +
-  scale_y_continuous(limits = c(0, 50000), breaks = seq(0, 50000, by = 10000)) +
-  scale_x_continuous(limits = c(1960, 2005), breaks = seq(1960, 2005, by = 5)) +
-  scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) +  # Set line colors
-  scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed"))  # Set line types
-
-
-gdp_path_plot
-
-```
-
-
 Andersson p.20
-
 ```{r wv initial gdp and co2 deviation from synthetic}
 # dataframes: gdp_path_data and path_data
 plot_gdp_path_data_percentage <- gdp_path_data %>%
@@ -906,7 +795,7 @@ plot_co2_path_data_percentage <- path_data %>%
 
 plot_co2_gdp_path_data_percentage <- merge(plot_co2_path_data_percentage, plot_gdp_path_data_percentage, by = "Year")
 
-# Create the combined plot
+# Create combined plot
 co2_gdp_combined_plot <- ggplot(plot_co2_gdp_path_data_percentage, aes(x = Year)) +
   geom_line(aes(y = percentage_gdp_deviation, color = "GDP Deviation")) +
   geom_line(aes(y = percentage_CO2_deviation, color = "CO2 Deviation")) +
@@ -919,7 +808,6 @@ co2_gdp_combined_plot <- ggplot(plot_co2_gdp_path_data_percentage, aes(x = Year)
        y = "Deviation of Norway from synthetic Norway") +
   theme_classic() +
   scale_y_continuous(labels = scales::percent, limits = c(-.25, .4), breaks = seq(-.2, .4, by = 0.1), expand = expansion(mult = c(0, 0))) +
-  #
   scale_x_continuous(limits = c(1960, 2006), breaks = seq(1960, 2005, by = 5), expand = expansion(mult = c(0, 0))) +
   scale_color_manual(values = c("GDP Deviation" = "grey", "CO2 Deviation" = "black"), labels = c("CO\u2082 Emissions from transport", "GDP")) +
   theme(legend.position = c(0.17, 0.1),  # Position the legend at the bottom left
@@ -930,55 +818,17 @@ co2_gdp_combined_plot <- ggplot(plot_co2_gdp_path_data_percentage, aes(x = Year)
 
 print (co2_gdp_combined_plot)
 
-# Save the plot with specific dimensions
+# Save  plot
 ggsave("plots/co2_gdp_combined_plot.jpg", plot = co2_gdp_combined_plot, width = 7, height = 6, units = "in", dpi = 500)
 
 ```
 
 
-
-```{r initial gdp and co2 deviation from synthetic}
-
-# Calculate the range for each variable to set the secondary axis appropriately
-gdp_range <- range(combined_data$GDP_Deviation, na.rm = TRUE)
-co2_range <- range(combined_data$CO2_Deviation, na.rm = TRUE)
-# The ratio will help to align the secondary axis
-ratio <- gdp_range[2] / co2_range[2]
-
-# Create the combined plot
-combined_plot <- ggplot(combined_data, aes(x = Year)) +
-  geom_line(aes(y = GDP_Deviation, color = "GDP Deviation")) +
-  geom_line(aes(y = CO2_Deviation * ratio, color = "CO2 Deviation")) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.5) +  # Corrected to horizontal line at y = 0
-  scale_y_continuous(
-    name = "GDP Deviation",
-    limits = range(c(gdp_range, co2_range * ratio)),  # Set limits to accommodate both variables
-    sec.axis = sec_axis(~./ratio, name = "CO2 Deviation", breaks = seq(floor(co2_range[1]), ceiling(co2_range[2]), length.out = 5))
-  ) +
-  labs(title = "Comparison of GDP and CO2 Emissions Deviations from Synthetic Control",
-       x = "Year",
-       color = "Variable") +
-  theme_minimal() +
-  scale_color_manual(values = c("GDP Deviation" = "grey", "CO2 Deviation" = "black")) +
-  theme(
-    legend.title = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1),  # To prevent overlapping x-axis labels
-    legend.position = "bottom"
-  )
-
-# Print the plot
-print(combined_plot)
-
-```
-
 p.16
-Polen oder USA machen hier diesen riesigen Bogen - vielleicht hervorheben? Die werden im nächsten Schritt rausgekickt
-Beide plots so wie auch die anderen gap plots
 ```{r wv placebo in-space test gap plot}
 in_space_gap_data_long_plot <- in_space_gap_data_long
 
 in_space_gap_data_long_plot$country[in_space_gap_data_long_plot$country == "Australia"] <- "Other Countries"
-
 
 placebo_in_space_test_gap_plot_1 <- ggplot(data = in_space_gap_data_long_plot, aes(x = year, y = gap, group = country, color = country, linetype = country)) +
   geom_line() +  # Use line geometry to connect data points over years
@@ -1041,7 +891,6 @@ print(placebo_in_space_test_gap_plot_1)
 
 
 ```{r initial placebo in-space test gap plot}
-
 ggplot(data = in_space_gap_data_long, aes(x = year, y = gap, group = country, color = country)) +
   geom_line() +  # Use line geometry to connect data points over years
   scale_color_manual(values = c("Norway" = "black", "Other" = rep("grey", length(unique(in_space_gap_data_mspe_20_long$Country)) - 1))) +
@@ -1052,8 +901,6 @@ ggplot(data = in_space_gap_data_long, aes(x = year, y = gap, group = country, co
   theme_minimal() +  # Use a minimal theme for a clean look
   theme(legend.position = "none")  # Optionally hide the legend if not needed
 ```
-
-Der hier ist ohne Polen und USA
 
 ```{r wv placebo in-space test, excluding MSPE> 20*Norway, gap plot}
 in_space_gap_data_mspe_20_long_plot <- in_space_gap_data_mspe_20_long
@@ -1107,7 +954,6 @@ placebo_in_space_test_gap_plot_2 <- ggplot(data = in_space_gap_data_mspe_20_long
         strip.background = element_blank()) + 
   scale_y_continuous(limits = c(-1.5, 1.5), breaks = seq(-1.5, 1.5, by = .5), expand = expansion(mult = c(0, 0))) + # More frequent breaks on the y-axis
   scale_x_continuous(expand = expansion(mult = c(0, 0))) 
-
 ```
 
 
@@ -1119,28 +965,11 @@ placebo_in_space_test_gap_plot_combined <- cowplot::plot_grid(placebo_in_space_t
 print(placebo_in_space_test_gap_plot_combined)
 
 # Save the plot with specific dimensions
-# ggsave("plots/placebo_in_space_test_gap_plot.jpg", plot = placebo_in_space_test_gap_plot_combined, width = 10, height = 6, units = "in", dpi = 500)
 ggsave("plots/placebo_in_space_test_gap_plot.jpg", plot = placebo_in_space_test_gap_plot_combined, width = 12, height = 6, units = "in", dpi = 500)
-
 ```
 
 
-```{r initial placebo in-space test, excluding MSPE> 20*Norway, gap plot}
-
-ggplot(data = in_space_gap_data_mspe_20_long, aes(x = Year, y = Gap, group = Country, color = Country)) +
-  geom_line() +  # Use line geometry to connect data points over years
-  scale_color_manual(values = c("Norway" = "black", "Other" = rep("grey", length(unique(in_space_gap_data_mspe_20_long$Country)) - 1))) +
-  labs(title = "Gap in CO2 Emissions Over Years by Country",
-       x = "Year",
-       y = "Gap in CO2 Emissions",
-       color = "Country") +
-  theme_minimal() +  # Use a minimal theme for a clean look
-  theme(legend.position = "bottomleft")  # Optionally hide the legend if not needed
-```
-
-
-
-Horizontaler bar plot p.17
+p.17
 ```{r wv}
 # Create a horizontal bar plot with ggplot2
 MSPE_ratio_plot <- ggplot(ratio_df, aes(x = reorder(Country, MSPE_Ratio), y = MSPE_Ratio, fill = Country)) +
@@ -1180,20 +1009,7 @@ ggsave("plots/MSPE_ratio_plot.jpg", plot = MSPE_ratio_plot, width = 7, height = 
 ```
 
 
-```{r inital}
-# Create a horizontal bar plot with ggplot2
-ggplot(ratio_df, aes(x = reorder(Country, -MSPE_Ratio), y = MSPE_Ratio, fill = MSPE_Ratio)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +  # Make the bar plot horizontal
-  labs(title = "MSPE Ratios by Country", x = "Country", y = "MSPE Ratio") +
-  theme_minimal() 
-```
-
-
-Panel! Panel B like p. 17 leave one out 
-
-leave one out with full sample. highlight excl_luxembourg
-Bitte Achsenbeschriftung etc. Kontrollieren, so wie es soll?
+Panel B like p. 17 leave one out 
 ```{r wv leave one out with full sample}
 all_significant_leave_one_out_long_plot <- all_significant_leave_one_out_long
 all_significant_leave_one_out_long_plot$Condition[all_significant_leave_one_out_long_plot$Condition == "excl_Luxembourg"] <- "Luxembourg excluded"
@@ -1201,7 +1017,6 @@ all_significant_leave_one_out_long_plot$Condition[all_significant_leave_one_out_
 all_significant_leave_one_out_long_plot$Condition[all_significant_leave_one_out_long_plot$Condition == "Synthetic_Norway"] <- "Synthetic Norway"
 
 
-# Now plot using ggplot2
 all_leave_one_out_plot <- ggplot(all_significant_leave_one_out_long_plot, aes(x = Year, y = CO2_per_capita, color = Condition, linetype = Condition)) +
   geom_line() +
   geom_vline(xintercept = 1991, linetype = "dotted", color = "black") +
@@ -1286,30 +1101,10 @@ all_leave_one_out_plot <- ggplot(all_significant_leave_one_out_long_plot, aes(x 
 print(all_leave_one_out_plot)
 
 ```
-```{r initial leave one out with full sample}
 
-# Now plot using ggplot2
-all_leave_one_out_plot_initial <- ggplot(all_significant_leave_one_out_long, aes(x = Year, y = CO2_per_capita, color = Condition)) +
-  geom_line() +
-  labs(title = "Leave-One-Out Analysis for Synthetic Norway with Significant Weights",
-       x = "Year",
-       y = "CO2 Emissions per Capita (metric tons)",
-       color = "Condition") +
-  theme_minimal() +
-  theme(legend.position = "right") +
-  scale_color_brewer(palette = "Set1")
-
-# Print the plot
-print(all_leave_one_out_plot_initial)
-
-```
 
 Panel A like p. 18 Panel A
 ```{r wv full sample path.plot}
-# Panel A: 3 Linien
-# 1.: Norway Black, solid
-# 2.: "Synthetic Norway" (aktuelles "Synthetic Norway" aus Panel B (df: path data), black, dashed)
-# 3.: "Synthetic Norway (full sample)" (aktuelles Synthetic Norway Panel A, Hell-Grau solid)
 temporary_path_data <- path_data %>%
   rename(Synthetic_import = Synthetic)
 
@@ -1341,38 +1136,8 @@ full_sample_path_plot <- ggplot(full_path_data_plot, aes(x = Year)) +
   scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway (full sample)" = "dotted", "Synthetic Norway" = "dashed"))  # Set line types
 
 print(full_sample_path_plot)
-# Save the plot with specific dimensions
-# ggsave("plots/path_plot.jpg", plot = path_plot, width = 7, height = 6, units = "in", dpi = 300)
 
-```
-
-```{r initial full sample path.plot}
-
-path_plot <- ggplot(full_path_data, aes(x = Year)) +
-  geom_line(aes(y = X17, color = "Norway", linetype = "Norway"), size = 0.5) +  # Solid line for Norway (Actual data)
-  geom_line(aes(y = Synthetic, color = "Synthetic Norway", linetype = "Synthetic Norway"), size = 0.5) +  # Dashed line for Synthetic control
-  geom_vline(xintercept = 1991, linetype = "dotted", color = "black", size = 0.5) +  # Dotted line at the year 1990
-  labs(title = NULL,
-       x = NULL,
-       y = bquote("Metric tons per capita (CO"[2]*" from transport)"),
-       color = "Legend",
-       linetype = "Legend") +  # Label for linetype legend
-  theme_classic() +
-  theme(legend.position = c(.15, .13),
-        legend.title = element_blank(),  # Remove the legend title for simplicity
-        legend.text = element_text(size = 8),  # Set text size for legend
-        legend.background = element_rect(fill = "white", colour = "black"), 
-        #panel.grid.major = element_blank(),  # Remove major grid lines
-        #panel.grid.minor = element_blank(),
-        legend.key = element_blank()) +  # No boxes around the legend symbols
-  annotate("text", x = 1985, y = 1, label = "Carbon tax", hjust = 0, color = "black") +
-  scale_y_continuous(limits = c(0, 3.5), breaks = seq(0, 3.5, by = 0.5), expand = expansion(mult = c(0, 0))) +
-  scale_x_continuous(limits = c(1960, 2005), breaks = seq(0, 2005, by = 10) , expand = expansion(mult = c(0, 0))) +
-  scale_color_manual(values = c("Norway" = "black", "Synthetic Norway" = "black")) +  # Set line colors
-  scale_linetype_manual(values = c("Norway" = "solid", "Synthetic Norway" = "dashed"))  # Set line types
-
-path_plot
-# Save the plot with specific dimensions
+# Save the plot 
 # ggsave("plots/path_plot.jpg", plot = path_plot, width = 7, height = 6, units = "in", dpi = 300)
 
 ```
@@ -1386,21 +1151,5 @@ luxembourg_comparison_plot_combined <- cowplot::plot_grid(full_sample_path_plot,
 print(luxembourg_comparison_plot_combined)
 
 # Save the plot with specific dimensions
-# ggsave("plots/luxembourg_comparison_plot_combined_wide_1.jpg", plot = luxembourg_comparison_plot_combined, width = 10, height = 6, units = "in", dpi = 300)
  ggsave("plots/luxembourg_comparison_plot_combined.jpg", plot = luxembourg_comparison_plot_combined, width = 12, height = 6, units = "in", dpi = 500)
-
-# drei Linien in Panel A: die beiden aktuellen plus die 
-# aktuelles Synthetic Norway Panel A: Hell-Grau solid
-#
-
-
-
-# zwei Legenden, je eins pro panel
-# Panel A: 3 Linien
-# 1.: Norway Black, solid
-# 2.: "Synthetic Norway" (aktuelles "Synthetic Norway" aus Panel B (df: path data), black, dashed)
-# 3.: "Synthetic Norway (full sample)" (aktuelles Synthetic Norway Panel A, Hell-Grau solid)
-
-# Panel B: 
-# genauso lassen
 ```
