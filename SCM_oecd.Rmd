@@ -1,0 +1,756 @@
+---
+title: "SCM_OECD"
+author: "Greta Lotz"
+date: "2024-04-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Packages}
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library("Synth")
+library(stringr)
+library(haven)
+library(foreign)
+library(reshape2)
+```
+
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(readxl)
+
+oecd_emissions <- read_excel("OECD_Emissions.xlsx")
+iea_data <- read_excel("iea.xlsx", sheet = 2)
+
+# Prepare OECD data (generalized for all countries)
+oecd_all_countries_long <- oecd_emissions %>%
+  gather(key = "year", value = "co2_per_capita", -c(country))
+
+```
+
+
+```{r}
+# Prepare IEA data (generalized for all countries)
+iea_all_countries_long <- iea_data %>%
+  gather(key = "year", value = "value", -c(country)) %>%
+  filter(year >= 1960 & year <= 2005) %>%
+  rename(co2_trans_percent = value)
+
+```
+
+
+```{r}
+# Merge and calculate CO2 transport per capita for all countries
+carbontax_oecd <- oecd_all_countries_long %>%
+  left_join(iea_all_countries_long, by = c("country", "year")) %>%
+  mutate(
+    year = as.numeric(year),
+    co2_per_capita = as.numeric(co2_per_capita),
+    co2_trans_percent = as.numeric(co2_trans_percent),
+    CO2_transport_capita = co2_per_capita * co2_trans_percent
+  ) %>%
+  select(-co2_per_capita, -co2_trans_percent)  # Removing intermediate columns
+
+```
+
+```{r}
+
+# Assuming carbontax and carbontax_oecd are already loaded and prepared
+
+# Merge carbontax with the new CO2_transport_capita values
+carbontax_updated <- carbontax %>%
+  left_join(carbontax_oecd %>% select(country, year, CO2_transport_capita),
+            by = c("country", "year")) %>%
+  # Replace the old CO2_transport_capita column with the new one
+  mutate(CO2_transport_capita = coalesce(CO2_transport_capita.y, CO2_transport_capita.x)) %>%
+  # Select the original columns of carbontax, now including the updated CO2_transport_capita
+  select(Countryno, country, year, CO2_transport_capita, GDP_per_capita, gas_cons_capita, vehicles_capita, urban_pop, pop_density)
+
+# View the updated dataframe
+print(carbontax_updated)
+```
+
+```{r}
+dataprep.out <-
+              dataprep(foo = carbontax_updated,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1990 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1990 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 10, # no 10 Norway
+                       controls.identifier = c(1:9, 11:15),
+                       time.optimize.ssr = 1960:1990,
+                       time.plot = 1960:2005
+                       )
+
+
+###################################################
+ synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")
+	
+###################################################
+ synth.tables <- synth.tab(dataprep.res = dataprep.out,
+                           synth.res = synth.out
+                           )
+
+###################################################
+### Table 1: CO2 Emissions From Transport Predictor Means Before Tax Reform	
+###################################################
+ synth.tables$tab.pred[1:7, ]
+ 
+###################################################
+### Table 2: Country Weights in Synthetic Norway
+###################################################
+ synth.tables$tab.w[1:14, ]
+
+###################################################
+### Figure 4: Path Plot of per capita CO2 Emissions from Transport
+###################################################
+  path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,5),
+           Legend = c("Norway","synthetic Norway"),
+           Legend.position = "bottomright"
+           )
+# Add line 
+abline(v=1991,lty="dotted",lwd=2)
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1983,1.0,"Carbon tax",cex=Cex.set)
+
+
+###################################################
+### Figure 5: Gap in per capita CO2 Emissions from Transport between Sweden and Synthetic Sweden
+###################################################
+ gaps.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Gap in metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(-0.8,1),
+           Main = NA
+           )
+
+#Add line
+abline(v=1991,lty="dotted",lwd=2)
+arrows(1987,-0.5,1989,-0.5,col="black",length=.1)	
+Cex.set <- 1
+text(1983,-0.5,"Carbon tax",cex=Cex.set)
+```
+
+```{r}
+# Assuming synth.out is your synthetic control model output from the synth function
+V_weights <- synth.out$solution.v
+
+# Ensure V_weights is treated as a column vector
+V_weights <- as.numeric(V_weights)  # Ensure it's numeric first
+predictor_names <- c("GDP_per_capita", "gas_cons_capita", "vehicles_capita", "urban_pop", 
+                     "CO2_transport_capita_1990", "CO2_transport_capita_1980", "CO2_transport_capita_1970")
+names(V_weights) <- predictor_names
+
+# Create a data frame
+v_weights_df <- data.frame( Weights = V_weights)
+
+# Format the weights to non-scientific notation
+v_weights_df$Weights <- format(v_weights_df$Weights, scientific = FALSE)
+
+# Print the data frame
+print(v_weights_df)
+
+
+```
+
+
+```{r OECD sample data for DiD plot}
+# Calculate the average CO2_transport_capita for each year, excluding Norway
+donor_pool_averages <- carbontax_updated %>%
+  filter(country != "Norway") %>%
+  group_by(year) %>%
+  summarize(average_CO2_transport_capita = mean(CO2_transport_capita, na.rm = TRUE))
+
+# Extract Norway data
+norway_data <- carbontax_updated %>%
+  filter(country == "Norway") %>%
+  select(year, CO2_transport_capita)
+
+# Combine Norway data with donor pool averages
+comparison_data <- left_join(norway_data, donor_pool_averages, by = "year")
+
+```
+
+
+```{r pull values from synth function}
+synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
+
+# Construct the Year vector from 1960 to 2005
+years <- 1960:2005
+
+# Create the comparison dataframe
+path_data <- data.frame(
+  Year = years,
+  Actual = dataprep.out$Y1plot,
+  Synthetic = as.vector(synthetic_control_outcomes)  # Convert matrix to vector
+)
+```
+
+```{r gap plot data set}
+# Calculate synthetic control outcomes
+synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
+
+# Calculate the gap between Actual and Synthetic
+gap <- dataprep.out$Y1plot - synthetic_control_outcomes
+
+# Construct the Year vector from 1960 to 2005
+years <- as.numeric(rownames(dataprep.out$Y0plot))  # Ensure years are correctly defined
+
+# Create the gap_data data frame
+gap_data <- data.frame(
+  Year = years,
+  Gap = as.vector(gap)  # Convert matrix to vector if not already
+)
+
+```
+
+```{r exctract table data }
+weights_df <-  synth.tables$tab.w
+
+table_avg_comparison <- synth.tables$tab.pred
+```
+
+
+Placebo tests
+
+
+```{r in-time test 1981}
+###################################################
+### Figure 6:  Placebo in-time tests 1981/1971
+###################################################
+#Placebo test in time for 1981 
+dataprep.out <-
+              dataprep(foo = carbontax_updated,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1970:1980 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean"),
+                         list("CO2_transport_capita" , 1965 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 10,
+                       controls.identifier = c(1:9,11:15),
+                       time.optimize.ssr = 1960:1980,
+                       time.plot = 1960:1991
+                       )
+
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "BFGS"
+                   )
+
+ path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Norway","synthetic Norway"),
+           Legend.position = "bottomright"
+           )
+
+# Add line 
+abline(v=1980,lty="dotted",lwd=2)
+arrows(1977,1.0,1979,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1974,1.0,"Placebo tax",cex=Cex.set)
+```
+
+
+```{r 1981 extracting data}
+
+# Calculate synthetic control outcomes
+synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
+
+# Construct the Year vector from the time.plot range in dataprep.out
+years <- 1960:1991
+
+# Create the 1981_placebo_path_plot data frame
+eighties_placebo_path_data <- data.frame(
+  Year = years,
+  Actual = dataprep.out$Y1plot,
+  Synthetic = as.vector(synthetic_control_outcomes)  # Convert matrix to vector if needed
+)
+
+```
+
+
+
+```{r in-time test 1971}
+#Placebo test in time for 1971 (excluding Poland due to missing GDP data 1960-69)
+ dataprep.out <-
+              dataprep(foo = carbontax_updated,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1960:1970 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1960:1970 , "mean")
+                                   ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 10,
+                       controls.identifier = c(1:9, 12, 14:15),# no nr 11, Poland
+                       time.optimize.ssr = 1960:1970,
+                       time.plot = 1960:1991
+                       )
+
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "All"
+                   )
+
+ path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Norway","synthetic Norway"),
+           Legend.position = "bottomright"
+           )
+
+# Add line 
+abline(v=1971,lty="dotted",lwd=2)
+arrows(1968,2.0,1969.5,2.0,col="black",length=.1)	
+Cex.set <- 1
+text(1965,2.0,"Placebo tax",cex=Cex.set)
+```
+
+
+```{r extract 1971 placebo in-time tests data}
+
+# Calculate synthetic control outcomes
+synthetic_control_outcomes <- dataprep.out$Y0plot %*% synth.out$solution.w
+
+# Construct the Year vector from the time.plot range in dataprep.out
+years <- 1960:1991
+
+# Create the 1981_placebo_path_plot data frame
+seventies_placebo_path_data <- data.frame(
+  Year = years,
+  Actual = dataprep.out$Y1plot,
+  Synthetic = as.vector(synthetic_control_outcomes)  # Convert matrix to vector if needed
+)
+
+
+```
+
+
+
+```{r in-space test}
+###################################################
+### Figure 7:  Placebo in-space tests
+###################################################
+store <- matrix(NA,length(1960:2005),15)
+colnames(store) <- unique(carbontax_updated$country)
+
+# run placebo test
+for(iter in 1:15)
+ {
+ dataprep.out <-
+              dataprep(foo = carbontax_updated,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1990 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1990 , "mean"),
+				list("CO2_transport_capita" , 1980 , "mean") ,
+				list("CO2_transport_capita" , 1970 , "mean")
+					  ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = iter,
+                       controls.identifier = c(1:15)[-iter],
+                       time.optimize.ssr = 1960:1990,
+                       time.plot = 1960:2005
+                       )
+
+
+
+# run synth
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "BFGS"
+                   )
+
+# store gaps
+store[,iter] <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+}
+
+# now do figure
+data <- store
+rownames(data) <- 1960:2005
+
+# Set bounds in gaps data
+gap.start     <- 1
+gap.end       <- nrow(data)
+years         <- 1960:2005
+gap.end.pre  <- which(rownames(data)=="1990")
+
+#  MSPE Pre-Treatment
+mse        <- apply(data[ gap.start:gap.end.pre,]^2,2,mean)
+norway.mse <- as.numeric(mse[10])
+# Exclude states with 20 times higher MSPE than Norway (to include all countries, set value to 1000)
+data <- data[,mse<1000*norway.mse]
+Cex.set <- 1
+
+# Plot
+plot(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],
+     ylim=c(-1,1),xlab="Year",
+     xlim=c(1960,2005),ylab="Gap in metric tons per capita (CO2 from transport)",
+     type="l",lwd=2,col="black",
+     xaxs="i",yaxs="i")
+
+# Add lines for control states
+for (i in 1:ncol(data)) { lines(years,data[gap.start:gap.end,i],col="gray") }
+
+## Add Sweden Line
+lines(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],lwd=2,col="black")
+
+# Add grid
+abline(v=1991,lty="dotted",lwd=2)
+abline(h=0,lty="dashed",lwd=2)
+legend("bottomleft",legend=c("Norway","control countries"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,1),cex=.8)
+arrows(1987,-0.5,1989,-0.5,col="black",length=.1)
+text(1981,-0.5,"Carbon Tax",cex=Cex.set)
+abline(v=1960)
+abline(v=2005)
+abline(h=-1)
+abline(h=1)
+```
+
+
+```{r in-space test extract data}
+
+rownames(store) <- as.character(1960:2005)  # Use as.character to ensure they are treated as non-numeric row names
+
+# Convert 'store' matrix to a data frame
+in_space_gap_data <- as.data.frame(store)
+
+# Add a year column explicitly from the row names
+in_space_gap_data$Year <- as.numeric(rownames(in_space_gap_data))  # Convert back to numeric for analysis purposes
+
+# Reshape from wide to long format
+
+in_space_gap_data_long <- melt(in_space_gap_data, id.vars = "Year", variable.name = "Country", value.name = "Gap")
+colnames(in_space_gap_data_long) <- c("year", "country", "gap")
+in_space_gap_data_long <-in_space_gap_data_long %>%
+  mutate(country = as.character(country))
+
+```
+
+
+
+```{r in-space test - excluding MSPE * 20}
+###################################################
+### Figure 7:  Placebo in-space tests
+###################################################
+store <- matrix(NA,length(1960:2005),15)
+colnames(store) <- unique(carbontax_updated$country)
+
+# run placebo test
+for(iter in 1:15)
+ {
+ dataprep.out <-
+              dataprep(foo = carbontax_updated,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1990 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1990 , "mean"),
+				list("CO2_transport_capita" , 1980 , "mean") ,
+				list("CO2_transport_capita" , 1970 , "mean")
+					  ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = iter,
+                       controls.identifier = c(1:15)[-iter],
+                       time.optimize.ssr = 1960:1990,
+                       time.plot = 1960:2005
+                       )
+
+
+
+# run synth
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "BFGS"
+                   )
+
+# store gaps
+store[,iter] <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+}
+
+# now do figure
+data <- store
+rownames(data) <- 1960:2005
+
+# Set bounds in gaps data
+gap.start     <- 1
+gap.end       <- nrow(data)
+years         <- 1960:2005
+gap.end.pre  <- which(rownames(data)=="1990")
+
+#  MSPE Pre-Treatment
+mse        <- apply(data[ gap.start:gap.end.pre,]^2,2,mean)
+norway.mse <- as.numeric(mse[10])
+# Exclude states with 20 times higher MSPE than Norway (to include all countries, set value to 1000)
+data <- data[,mse<20*norway.mse]
+Cex.set <- 1
+
+# Plot
+plot(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],
+     ylim=c(-1,1),xlab="Year",
+     xlim=c(1960,2005),ylab="Gap in metric tons per capita (CO2 from transport)",
+     type="l",lwd=2,col="black",
+     xaxs="i",yaxs="i")
+
+# Add lines for control states
+for (i in 1:ncol(data)) { lines(years,data[gap.start:gap.end,i],col="gray") }
+
+## Add Sweden Line
+lines(years,data[gap.start:gap.end,which(colnames(data)=="Norway")],lwd=2,col="black")
+
+# Add grid
+abline(v=1991,lty="dotted",lwd=2)
+abline(h=0,lty="dashed",lwd=2)
+legend("bottomleft",legend=c("Norway","control countries"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,1),cex=.8)
+arrows(1987,-0.5,1989,-0.5,col="black",length=.1)
+text(1981,-0.5,"Carbon Tax",cex=Cex.set)
+abline(v=1960)
+abline(v=2005)
+abline(h=-1)
+abline(h=1)
+```
+
+
+
+```{r in-space test extract data}
+# Assume column names for 'store' need to be explicitly set to country names
+colnames(store) <- unique(carbontax_updated$country)  # Adjust to match your specific country name vector
+
+# Set row names for the 'store' matrix to represent years
+rownames(store) <- as.character(1960:2005)
+
+# Convert 'store' matrix to a data frame
+gap_data_store <- as.data.frame(store)
+
+# Calculate MSPE pre-treatment for each country
+gap.start <- 1
+gap.end.pre <- which(rownames(gap_data_store) == "1990")
+mse <- apply(gap_data_store[gap.start:gap.end.pre, ]^2, 2, mean)
+
+# Assume 'Norway' is one of the column names for MSE calculation
+norway.mse <- as.numeric(mse["Norway"])
+
+# Filter countries with MSPE less than 20 times that of Norway's MSPE
+valid_countries <- mse < 5 * norway.mse
+filtered_data <- gap_data_store[, valid_countries, drop = FALSE]  # Ensure it retains data frame structure
+
+# Add a year column explicitly from the row names to the filtered data
+filtered_data$Year <- as.numeric(rownames(filtered_data))  # Convert row names to numeric for the year
+
+# Reshape from wide to long format
+
+in_space_gap_data_mspe_20_long <- melt(filtered_data, id.vars = "Year", variable.name = "Country", value.name = "Gap")
+
+# Ensure Country column is treated as character
+in_space_gap_data_mspe_20_long$Country <- as.character(in_space_gap_data_mspe_20_long$Country)
+
+```
+
+
+
+```{r ratio test}
+###################################################
+### Figure 8: Ratio Test: Ratios of Post-Treatment MSPE to Pre-Treatment MSPE
+###################################################
+# Figure 8 was made using Microsoft Excel. Below is an example on how the data for this figure was created
+# Example: Postperiod MSPE / Preperiod MSPE for Norway (treatment.identifier = 10)
+
+
+carbontax_updated$Countryno <- as.numeric(as.character(carbontax_updated$Countryno))
+
+unique_countries <- unique(carbontax_updated$Countryno)
+country_names <- carbontax_updated$country[match(unique_countries, carbontax_updated$Countryno)]
+
+results <- list()
+
+for (i in seq_along(unique_countries)) {
+  country <- unique_countries[i]
+  country_name <- country_names[i]
+  controls <- unique_countries[unique_countries != country]
+  
+  dataprep.out <- dataprep(
+    foo = carbontax_updated,
+    predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1990 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1990 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+    treatment.identifier = country,
+    controls.identifier = controls,
+   time.optimize.ssr = 1960:1990,
+                       time.plot = 1960:2005
+                       )
+  
+  synth.out <- synth(data.prep.obj = dataprep.out, method = "All")
+  gaps <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+  mspepost <- mean((gaps[32:46, 1])^2)
+  mspepre <- mean((gaps[1:31, 1])^2)
+
+  results[[country_name]] <- mspepost / mspepre
+}
+
+# Convert the results list to a data frame for ggplot2
+ratio_df <- data.frame(Country = names(results), MSPE_Ratio = unlist(results))
+
+# Create a horizontal bar plot with ggplot2
+ggplot(ratio_df, aes(x = reorder(Country, -MSPE_Ratio), y = MSPE_Ratio, fill = MSPE_Ratio)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Make the bar plot horizontal
+  labs(title = "MSPE Ratios by Country", x = "Country", y = "MSPE Ratio") +
+  theme_minimal() 
+
+```
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+# Convert the carbontax_updated dataframe to long format
+carbontax_long <- pivot_longer(
+  carbontax_updated,
+  cols = -c(Countryno, country, year),  # Assuming these are the identifier columns
+  names_to = "variable",
+  values_to = "value"
+)
+
+# Now, use ggplot2 to plot, making the line for Norway black
+ggplot(data = carbontax_long, aes(x = year, y = value, group = country)) + 
+  geom_line(aes(color = ifelse(country == "Norway", "Norway", "Other"))) +  # Conditionally adjust the color
+  scale_color_manual(values = c("Norway" = "black", "Other" = "grey")) +  # Define colors
+  facet_wrap(~variable, scales = "free_y") +  # Separate plot for each variable
+  theme_minimal() + 
+  labs(x = "Year", y = "Value", color = "Country") +
+  theme(legend.position = "bottom")  # Position the legend at the bottom of the plot
+
+```
+
+```{r}
+
+# Convert the carbontax_updated dataframe to long format
+carbontax_long <- pivot_longer(
+  carbontax_updated,
+  cols = -c(Countryno, country, year),  # Assuming these are the identifier columns
+  names_to = "variable",
+  values_to = "value"
+)
+
+# Define a color for each country, with Norway as black
+country_colors <- setNames(rainbow(length(unique(carbontax_long$country)) - 1), unique(carbontax_long$country[carbontax_long$country != "Norway"]))
+country_colors["Norway"] <- "black"  # Ensure Norway is black
+
+# Plot with ggplot2, specifying colors for each country
+ggplot(data = carbontax_long, aes(x = year, y = value, group = country, color = country)) + 
+  geom_line() + 
+  scale_color_manual(values = country_colors) +  # Assign colors
+  facet_wrap(~variable, scales = "free_y") +  # Separate plot for each variable
+  theme_minimal() + 
+  labs(x = "Year", y = "Value", color = "Country") +
+  theme(legend.position = "bottom")  # Position the legend at the bottom of the plot
+
+```
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Convert the carbontax_updated dataframe to long format
+carbontax_long <- pivot_longer(
+  carbontax_updated,
+  cols = -c(Countryno, country, year),  # Assuming these are the identifier columns
+  names_to = "variable",
+  values_to = "value"
+)
+
+# Filter the data for the specific countries
+specific_countries <- c("Norway", "Portugal", "United States", "Denmark", "Canada", "Japan", "Switzerland")
+carbontax_long <- carbontax_long %>%
+  filter(country %in% specific_countries)
+
+# Define a color for each country, with Norway as black
+country_colors <- c("Norway" = "black", 
+                    "Portugal" = "blue", 
+                    "United States" = "red", 
+                    "Denmark" = "green", 
+                    "Canada" = "orange", 
+                    "Japan" = "purple", 
+                    "Switzerland" = "brown")
+
+# Plot with ggplot2, specifying colors for each country
+ggplot(data = carbontax_long, aes(x = year, y = value, group = country, color = country)) + 
+  geom_line() + 
+  scale_color_manual(values = country_colors) +  # Assign colors
+  facet_wrap(~variable, scales = "free_y") +  # Separate plot for each variable
+  theme_minimal() + 
+  labs(x = "Year", y = "Value", color = "Country") +
+  theme(legend.position = "bottom")  # Position the legend at the bottom of the plot
+
+```

@@ -1,0 +1,74 @@
+---
+title: "Emission Intensity"
+author: "Greta Lotz"
+date: "2024-04-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Assuming you have two data frames: `gdp_data` and `emission_data`
+# Each should have columns for 'Year', 'GDP_Per_Capita', and 'Emissions_Per_Capita' respectively
+oecd_emissions <- read_xlsx("OECD_Emissions.xlsx")
+
+oecd_norway <- oecd_emissions %>%
+  filter(country == "Norway")
+
+oecd_norway_long <- oecd_norway %>%
+  gather(key = "year", value = "value", -c(country))
+
+emission_data <- oecd_norway_long %>%
+  rename(Emissions_Per_Capita = value)
+emission_data <- emission_data %>%
+  select(-country)
+
+pwt_data <- read_excel("pwt81.xlsx", sheet = 3)
+pwt_data$gdp_per_capita <- pwt_data$rgdpe / pwt_data$pop
+
+gdp_data <- pwt_data %>%
+  filter(country == "Norway", year >= 1960, year <= 2005)%>%
+  select(year, gdp_per_capita)%>%
+rename(GDP_Per_Capita = gdp_per_capita)
+
+
+# First, ensure both datasets are sorted by year and merge them by 'Year'
+combined_data <- merge(gdp_data, emission_data, by = "year")
+
+# Calculate Emission Intensity
+combined_data$Emission_Intensity <- combined_data$Emissions_Per_Capita / combined_data$GDP_Per_Capita
+
+# To plot the emission intensity over time
+library(ggplot2)
+ggplot(combined_data, aes(x = year, y = Emission_Intensity)) +
+  geom_line() +
+  labs(title = "Emission Intensity of GDP in Norway",
+       x = "Year",
+       y = "Emissions per Unit of GDP (per capita)") +
+  theme_minimal()
+
+# To display the table
+print(combined_data)
+
+```
+
+
+```{r}
+library(ggplot2)
+
+# Basic ggplot setup with gas_cons_capita plotted for each year
+plot <- ggplot(carbontax_updated, aes(x = year, y = gas_cons_capita)) +
+  geom_line() +  # Add line graph
+  facet_wrap(~ country, scales = "free_y") +  # Facets for each country, allowing different y scales
+  labs(title = "Gas Consumption Per Capita Over Time by Country",
+       x = "Year",
+       y = "Gas Consumption per Capita") +
+  theme_minimal() +  # Clean minimalistic theme
+  theme(strip.text.x = element_text(size = 8, angle = 0, hjust = 0.5),  # Adjust facet label text
+        axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better visibility
+
+print(plot)
+
+```

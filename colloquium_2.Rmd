@@ -1,0 +1,541 @@
+---
+title: "Thesis Colloquium 2"
+author: "Greta Lotz"
+date: "2024-01-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Packages}
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+```
+
+
+#### CO2 Emission
+
+```{r}
+# load data
+world_bank_norway <- read_excel("world_bank_norway.xls")
+
+# Filter the data for the relevant indicators
+filtered_data <- world_bank_norway %>%
+  filter(indicator_code %in% c("EN.ATM.CO2E.LF.KT", "EN.ATM.CO2E.GF.KT", "EN.ATM.CO2E.SF.KT"))
+
+# Aggregate the data by country and indicator, summing across years
+aggregated_data <- filtered_data %>%
+  group_by(country, country_code, indicator, indicator_code) %>%
+  summarize(across(where(is.numeric), sum, na.rm = TRUE), .groups = "drop")
+
+# Calculate the sum across year columns for the total fuel combustion row
+total_combustion_row <- aggregated_data %>%
+  filter(indicator_code %in% c("EN.ATM.CO2E.LF.KT", "EN.ATM.CO2E.GF.KT", "EN.ATM.CO2E.SF.KT")) %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE), .groups = "drop")
+
+# Add a new row with the total fuel combustion
+total_combustion_row <- total_combustion_row %>%
+  mutate(indicator = "Total Fuel Combustion (kt)",
+         indicator_code = "TFC",
+         country = "Norway",
+         country_code = "NOR")
+
+# Combine the aggregated data with the new total combustion row
+co2_emissions_df <- bind_rows(aggregated_data, total_combustion_row)
+
+
+total_fuel_combustion_row <- co2_emissions_df %>%
+  filter(indicator_code == "TFC")
+#long format
+
+norway_long <- total_fuel_combustion_row %>%
+  gather(key = "year", value = "value", -c(country, country_code, indicator, indicator_code))
+
+```
+
+
+```{r}
+
+# Plot the data
+ggplot(norway_long, aes(x = as.numeric(year), y = as.numeric(value))) +
+  geom_line() +
+  geom_vline(xintercept = 1991, linetype = "dashed", color = "black") +
+  annotate("text", x = 1991, y = 2000, 
+           label = "Carbon Tax", color = "black", vjust = -0.5, hjust = -0.5) +
+  labs(title = "Road Sector CO2 Emissions in Norway",
+       x = "",
+       y = "CO2 emissions from liquid fuel consumption (kt)") +
+  theme_minimal()
+
+```
+
+
+```{r}
+# Filter the data for transport emissions (% of total fuel combustion) indicator
+subset_co2_transport <- world_bank_norway %>%
+  filter(indicator_code %in% c("EN.CO2.TRAN.ZS"))
+
+subset_co2_transport_long <- subset_co2_transport %>%
+  gather(key = "year", value = "value", -c(country, country_code, indicator, indicator_code))
+
+# Get percentages into a different format
+subset_co2_transport_long$value <- subset_co2_transport_long$value / 100
+
+```
+
+```{r}
+# Add value of data frame subset_co2_transport_long to norway_long
+norway_long <- norway_long %>%
+  mutate(co2_trans_percent = subset_co2_transport_long$value)
+# rename variable name "value" to be more self-explanatory
+norway_long <- norway_long %>%
+  rename(co2_fuel_absolute = value)
+
+# calculate the absolute value of kt CO2 from the percentage and the total kt of fuel combustion
+norway_long <- norway_long %>%
+  mutate(co2_transport_kt = co2_fuel_absolute * co2_trans_percent)
+```
+
+
+```{r Road Sector Emissions per capita}
+
+# Provide the path to your Excel file
+file_path <- "population_norway.xlsx"
+
+# Read the Excel file into a data frame
+population_norway <- read_excel(file_path)
+
+per_capita_co2 <- left_join(norway_long, population_norway, by = "year")
+
+per_capita_co2 <- per_capita_co2 %>%
+  mutate(value_metric_tons = co2_transport_kt * 1000)  # Convert kilotons to metric tons
+
+# Calculate metric tons per capita
+per_capita_co2 <- per_capita_co2 %>%
+  mutate(metric_tons_per_capita = value_metric_tons / (population))  # Convert population to thousands for per capita calculation
+
+
+ggplot(per_capita_co2, aes(x = as.numeric(year), y = as.numeric(metric_tons_per_capita))) +
+  geom_line() +
+  geom_vline(xintercept = 1991, linetype = "dashed", color = "black") +
+  annotate("text", x = 1991, y = 4, 
+           label = "Carbon Tax", color = "black", vjust = -0.5, hjust = -0.5) +
+  labs(title = "Road Sector CO2 Emissions in Norway per capita",
+       x = "",
+       y = "CO2 emissions from fuel consumption per capita (mt)") +
+  theme_minimal()
+```
+
+
+
+#### Fuel Consumption
+```{r}
+norway_consumption <- read_excel("norway_consumption.xlsx")
+
+```
+
+```{r}
+
+## Convert the year columns to character
+norway_consumption[, 4:ncol(norway_consumption)] <- lapply(
+  norway_consumption[, 4:ncol(norway_consumption)],
+  as.character
+)
+
+# Reshape the data frame to long format
+norway_consumption_long <- pivot_longer(
+  norway_consumption,
+  cols = -c(country, world_bank_code, category),
+  names_to = "year",
+  values_to = "value"
+)
+
+# Convert year to numeric (if needed)
+norway_consumption_long$year <- as.numeric(norway_consumption_long$year)
+
+```
+
+```{r warning=FALSE}
+unique(norway_consumption_long$world_bank_code)
+unique(norway_consumption_long$category)
+norway_consumption_long$world_bank_code <- trimws(norway_consumption_long$world_bank_code)
+
+
+# Convert 'value' to numeric
+norway_consumption_long$value <- as.numeric(norway_consumption_long$value)
+
+# Filter data for the specified world_bank_code values
+filtered_data <- norway_consumption_long %>% 
+  filter(category %in% c("Road sector diesel fuel consumption per capita (kt of oil equivalent)", "Road sector gasoline fuel consumption per capita (kt of oil equivalent)"))
+
+# Create a line plot using ggplot2 with custom legend labels
+consumption_plot <- ggplot(filtered_data, aes(x = year, y = value, color = category)) +
+  geom_line() +
+  geom_vline(xintercept = 1991, linetype = "dashed", color = "#A020F0") +
+  labs(title = "Norway: Diesel and Gasoline Consumption per capita",
+       x = "",
+       y = "Road sector fuel consumption per capita (kt of oil equivalent)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Road sector diesel fuel consumption per capita (kt of oil equivalent)" = "#008080", "Road sector gasoline fuel consumption per capita (kt of oil equivalent)" = "#FF8C00"),
+                     labels = c("Diesel", "Gasoline"))+
+  guides(color = guide_legend(title = "")) +
+  annotate("text", x = 1991, y = 0.1, vjust = -0.5, label = "Carbon Tax", color = "black", angle = 90, size = 3)
+
+# Export the plot as a PNG file
+ggsave("plot.png", width = 10, height = 6, units = "in", bg = "transparent")
+consumption_plot
+
+```
+```{r}
+summary_stats <- norway_consumption_long %>%
+  filter(category %in% c("Road sector diesel fuel consumption per capita (kt of oil equivalent)",
+                         "Road sector gasoline fuel consumption per capita (kt of oil equivalent)")) %>%
+  group_by(category) %>%
+  summarise(
+    mean_value = mean(as.numeric(value), na.rm = TRUE),
+    median_value = median(as.numeric(value), na.rm = TRUE),
+    sd_value = sd(as.numeric(value), na.rm = TRUE),
+    min_value = min(as.numeric(value), na.rm = TRUE),
+    max_value = max(as.numeric(value), na.rm = TRUE)
+  )
+
+summary_stats
+```
+
+#### GDP per capita
+
+```{r}
+pwt_data <- read_excel("pwt81.xlsx", sheet = 3)
+pwt_data$gdp_per_capita <- pwt_data$rgdpe / pwt_data$pop
+
+norway_gdp <- pwt_data %>%
+  filter(country == "Norway", year >= 1960, year <= 2005)%>%
+  select(country, year, rgdpe, gdp_per_capita)
+
+# Plot GDP per capita for Norway
+plot(norway_gdp$year, norway_gdp$gdp_per_capita, type = "l", 
+     xlab = "Year", ylab = "GDP per Capita",
+     main = "GDP per Capita in Norway (1960-2005)")
+
+norway_gdp_summary <- pwt_data %>%
+  filter(country == "Norway", year >= 1960, year <= 2005) %>%
+  summarise(
+    mean_rgdpo = mean(rgdpo, na.rm = TRUE),
+    median_rgdpo = median(rgdpo, na.rm = TRUE),
+    sd_rgdpo = sd(rgdpo, na.rm = TRUE),
+    min_rgdpo = min(rgdpo, na.rm = TRUE),
+    max_rgdpo = max(rgdpo, na.rm = TRUE)
+  )
+
+# Filter data for Norway and the years 1960-2005
+norway_gdp_pc_summary <- pwt_data %>%
+  filter(country == "Norway", year >= 1960, year <= 2005) %>%
+  summarise(
+    mean_rgdpo_pc = mean(gdp_per_capita, na.rm = TRUE),
+    median_rgdpo_pc = median(gdp_per_capita, na.rm = TRUE),
+    sd_rgdpo_pc = sd(gdp_per_capita, na.rm = TRUE),
+    min_rgdpo_pc = min(gdp_per_capita, na.rm = TRUE),
+    max_rgdpo_pc = max(gdp_per_capita, na.rm = TRUE)
+  )
+
+# Print the summary statistics
+print(norway_gdp_summary)
+print(norway_gdp_pc_summary)
+
+```
+#### Urban Population
+
+```{r urbanization Norway}
+# Provide the path to your Excel file
+file_path <- "world_bank_norway.xls"
+
+# Read the Excel file into a data frame
+world_bank_norway <- read_excel(file_path)
+
+# Filter the data for the indicator code SP.URB.TOTL.IN.ZS for Norway
+urbanization_norway <- world_bank_norway %>%
+  filter(indicator_code == "SP.URB.TOTL.IN.ZS")
+
+# Convert the data frame from wide to long format
+urbanization_norway_long <- urbanization_norway %>%
+  pivot_longer(cols = starts_with("19") | starts_with("20"),
+               names_to = "year",
+               values_to = "urbanization")
+
+```
+
+
+
+```{r plot urbanization}
+
+urbanization_norway_long <- urbanization_norway_long %>%
+  mutate_all(as.numeric)
+
+filtered_data <- urbanization_norway_long %>%
+  filter(year >= 1960 & year <= 2005)
+
+# Plot the filtered data
+ggplot(filtered_data, aes(x = year, y = urbanization)) +
+  geom_line(color = "blue", size = 1) +
+  labs(title = "Urban Population Percentage Over the Years (1960-2005)",
+       x = "Year",
+       y = "Percentage of Urban Population") +
+  theme_minimal()
+```
+##### Population Density
+
+```{r Density}
+
+# Provide the path to your Excel file
+file_path <- "world_bank_norway.xls"
+
+# Read the Excel file into a data frame
+world_bank_norway <- read_excel(file_path)
+
+# Filter the data for the indicator code EN.POP.DNST for Norway
+pop_density_norway <- world_bank_norway %>%
+  filter(indicator_code == "EN.POP.DNST")
+
+# Convert the data frame from wide to long format
+pop_density_norway_long <- pop_density_norway %>%
+  pivot_longer(cols = starts_with("19") | starts_with("20"),
+               names_to = "year",
+               values_to = "density")
+
+# Plot the population density over the years
+ggplot(pop_density_norway_long, aes(x = as.numeric(year), y = density)) +
+  geom_line(color = "blue", size = 1) +
+  labs(title = "Population Density Over the Years",
+       x = "Year",
+       y = "Population Density") +
+  theme_minimal()
+
+```
+##### Vehicles 
+```{r}
+
+# Provide the path to your Excel file
+file_path <- "world_bank_usa.xls"
+
+# Read the Excel file into a data frame
+world_bank_usa <- read_excel(file_path)
+
+
+# Filter the data for the indicator code EN.POP.DNST for the US
+pop_density_usa <- world_bank_usa %>%
+  filter(indicator_code == "EN.POP.DNST")
+
+# Convert the data frame from wide to long format
+pop_density_usa_long <- pop_density_usa %>%
+  pivot_longer(cols = starts_with("19") | starts_with("20"),
+               names_to = "year",
+               values_to = "density_usa")
+
+
+
+# Filter the data for the indicator code SP.URB.TOTL.IN.ZS for the US
+urban_pop_usa <- world_bank_usa %>%
+  filter(indicator_code == "SP.URB.TOTL.IN.ZS")
+
+# Convert the data frame from wide to long format
+urban_pop_usa_long <- urban_pop_usa %>%
+  pivot_longer(cols = starts_with("19") | starts_with("20"),
+               names_to = "year",
+               values_to = "urbanization_usa")
+
+```
+
+```{r}
+
+# Convert "year" column to character in all data frames
+urban_pop_usa_long$year <- as.character(urban_pop_usa_long$year)
+pop_density_usa_long$year <- as.character(pop_density_usa_long$year)
+pop_density_norway_long$year <- as.character(pop_density_norway_long$year)
+urbanization_norway_long$year <- as.character(urbanization_norway_long$year)
+
+
+# Filter and select relevant columns from each data frame
+urban_pop_usa_filtered <- urban_pop_usa_long %>%
+  filter(year >= 1960 & year <= 2005) %>%
+  select(year, urbanization_usa)
+
+pop_density_usa_filtered <- pop_density_usa_long %>%
+  filter(year >= 1960 & year <= 2005) %>%
+  select(year, density_usa)
+
+pop_density_norway_filtered <- pop_density_norway_long %>%
+  filter(year >= 1960 & year <= 2005) %>%
+  select(year, density)
+
+urbanization_norway_filtered <- urbanization_norway_long %>%
+  filter(year >= 1960 & year <= 2005) %>%
+  select(year, urbanization)
+
+# Merge the data frames
+dargay_et_al_calc <- urban_pop_usa_filtered %>%
+  full_join(pop_density_usa_filtered, by = "year") %>%
+  full_join(pop_density_norway_filtered, by = "year") %>%
+  full_join(urbanization_norway_filtered, by = "year")
+
+```
+
+```{r}
+
+# dargay_et_al_calc contains the merged data frame with columns:
+# year, urbanization_usa, density_usa, density, urbanization
+
+# Calculate Dit and Uit for each year
+dargay_et_al_calc <- dargay_et_al_calc %>%
+  mutate(D_it = ifelse(density > density_usa, density - density_usa, 0),
+         U_it = ifelse(urbanization > urbanization_usa, urbanization - urbanization_usa, 0))
+
+# add GDP columns
+dargay_et_al_calc <- merge(norway_gdp, dargay_et_al_calc, by = "year")
+
+
+# Calculate Rit and Fit
+dargay_et_al_calc <- dargay_et_al_calc %>%
+  arrange(year) %>%
+  mutate(R_it = ifelse(gdp_per_capita - lag(gdp_per_capita, default = first(gdp_per_capita)) > 0, 1, 0),
+         F_it = ifelse(gdp_per_capita - lag(gdp_per_capita, default = first(gdp_per_capita)) < 0, 1, 0))
+
+# Check the updated data frame
+head(dargay_et_al_calc)
+```
+
+```{r function dargay et al 2007}
+
+calculate_V <- function(alpha, beta, gamma, lambda, theta_R, theta_F, phi, data_frame, initial_V) {
+  # Access values from the data frame
+  R_it <- data_frame$R_it
+  F_it <- data_frame$F_it
+ # D_it <- data_frame$D_it
+ # U_it <- data_frame$U_it
+  GDP <- data_frame$gdp_per_capita
+  
+  # Initialize V with the initial value
+  V <- rep(NA, nrow(data_frame))
+  V[1] <- initial_V
+  
+  # Calculate V iteratively for each year
+  for (i in 2:length(V)) {
+    # Calculate the expression for V
+    V[[i]] <- (gamma) * (theta_R * R_it[[i]] + theta_F * F_it[[i]]) * exp(alpha * exp(beta * GDP[i])) +
+      (1 - theta_R * R_it[[i]] - theta_F * F_it[[i]]) * V[i-1]
+  }
+  
+  return(V)
+}
+
+# Complete equation, but in the case of Norway some of it is 0 anyways
+# V[[i]] <- (gamma + lambda * D_it[[i]] + phi * U_it[[i]]) * (theta_R * R_it[[i]] + theta_F * F_it[[i]]) * exp(alpha * exp(beta * GDP[[i]])) + (1 - theta_R * R_it[[i]] - theta_F * F_it[[i]]) * V[[i-1]]
+
+# Define  initial value of V for the first year
+initial_V <- 95  # value for 1960, Dargay et al 2007
+
+# External parameters
+alpha <- -5.897
+beta <- -0.13
+gamma <- 852
+lambda <- -0.000388
+theta_R <- 0.095
+theta_F <- 0.084
+phi <- -0.007765
+
+# Data frame
+data_frame <- dargay_et_al_calc
+
+# Call function 
+result <- calculate_V(alpha, beta, gamma, lambda, theta_R, theta_F, phi, data_frame, initial_V)
+
+# Add the result vector as a new column
+dargay_et_al_calc <- cbind(dargay_et_al_calc, vehicles_capita = result)
+
+```
+
+
+
+```{r}
+# year, vehicles per capita
+ggplot(data = dargay_et_al_calc, aes(x = year, y = vehicles_capita)) +
+  # Add a line plot
+  geom_line(color = "blue") +
+  # Add labels for x-axis and y-axis
+  labs(x = "Year", y = "Vehicles per Capita",
+       title = "Vehicles per Capita over Years") +
+  # Customize the theme
+  theme_minimal()
+
+# gdp, vehicles per capita
+ggplot(data = dargay_et_al_calc, aes(x = gdp_per_capita, y = vehicles_capita)) +
+  # Add a line plot
+  geom_line(color = "blue") +
+  # Add labels for x-axis and y-axis
+  labs(x = "GDP per Capita", y = "Vehicles per Capita",
+       title = "Vehicles per Capita vs GDP per Capita") +
+  # Set y-axis limits
+  ylim(0, 1000) +
+  # Customize the theme
+  theme_minimal()
+
+
+
+```
+
+
+```{r}
+# plotting the US
+
+pwt_data <- read_excel("pwt81.xlsx", sheet = 3)
+pwt_data$gdp_per_capita <- pwt_data$rgdpo / pwt_data$pop
+
+usa_gdp <- pwt_data %>%
+  filter(country == "United States", year >= 1960, year <= 2005)%>%
+  select(country, year, rgdpo, gdp_per_capita)
+
+
+# Filter the data for the United States
+us_data <- subset(carbontax_fullsample, country == "United States")
+
+# Create a ggplot object and specify the data and aesthetics
+ggplot(data = us_data, aes(x = year, y = vehicles_capita)) +
+  # Add a point plot
+  geom_line(color = "blue") +
+  # Add labels for x-axis and y-axis
+  labs(x = "year", y = "Vehicles per Capita",
+       title = "Vehicles per Capita vs GDP per Capita (United States)")+
+  # Set y-axis limits
+  ylim(0, 1000) +
+  theme_bw()
+```
+```{r}
+# plotting Sweden
+pwt_data <- read_excel("pwt81.xlsx", sheet = 3)
+pwt_data$gdp_per_capita <- pwt_data$rgdpo / pwt_data$pop
+
+sweden_gdp <- pwt_data %>%
+  filter(country == "Sweden", year >= 1960, year <= 2005)%>%
+  select(country, year, rgdpo, gdp_per_capita)
+
+
+# Filter the data for the United States
+sweden_data <- subset(carbontax_fullsample, country == "Sweden")
+
+# plot
+ggplot(data = sweden_data, aes(x = GDP_per_capita, y = vehicles_capita)) +
+  # Add a point plot
+  geom_line(color = "blue") +
+  # Add labels for x-axis and y-axis
+  labs(x = "GDP per Capita", y = "Vehicles per Capita",
+       title = "Vehicles per Capita vs GDP per Capita (Sweden)")+
+
+  ylim(0, 1000) +
+  xlim(0,50000)+
+  theme_bw()
+```
+
